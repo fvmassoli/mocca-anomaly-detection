@@ -36,6 +36,15 @@ To cite our work, please use the following form
 ... scholar
 ```
 
+## Model checkpoints
+
+The checkpoints are relative to models reported in **Table 1** of the paper
+
+|   |  | | |  |
+| --- | --- | --- | --- | --- |
+| [model](https://drive.google.com...) |  |  |  |  |
+
+
 ## Contacts
 If you have any question about our work, please contact [Dr. Fabio Valerio Massoli](mailto:fabio.massoli@isti.cnr.it). 
 

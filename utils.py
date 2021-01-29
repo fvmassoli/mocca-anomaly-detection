@@ -98,21 +98,20 @@ def purge_ae_params(encoder_net, ae_net_cehckpoint: str):
     encoder_net.load_state_dict(net_dict)
         
 
-def eval_spheres_centers(train_dset, input_shape, ae_net_cehckpoint, code_length, texture, debug, batch_size, device, use_selectors):
+def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module, ae_net_cehckpoint: str, debug: bool):
     """Eval the centers of the hyperspheres at each chosen layer.
 
     Parameters
     ----------
-    train_dset : 
-    input_shape : 
-    ae_net_cehckpoint : 
-    code_length : 
-    texture : 
-    debug : 
-    batch_size : 
-    device : 
-    use_selectors : 
-
+    train_loader : DataLoader
+        DataLoader for trainin data
+    encoder_net : torch.nn.Module
+        Encoder network 
+    ae_net_cehckpoint : str
+        Checkpoint of the full AutoEncoder 
+    debug : bool
+        Activate debug mode
+    
     Returns
     -------
     dict : dictionary
@@ -120,71 +119,63 @@ def eval_spheres_centers(train_dset, input_shape, ae_net_cehckpoint, code_length
     
     """
     logger = logging.getLogger()
+    # If centers are found, then load and return
     if os.path.exists(ae_net_cehckpoint[:-4]+'_w_centers.pth'):
         logger.info("Found hyperspheres centers")
         ae_net_ckp = torch.load(ae_net_cehckpoint[:-4]+'_w_centers.pth', map_location=lambda storage, loc: storage)
         centers = {k: v.to(device) for k, v in ae_net_ckp['centers'].items()}
-        return centers
     else:
         logger.info("Hyperspheres centers not found... evaluating...")
-        ae_net_ckp = torch.load(ae_net_cehckpoint, map_location=lambda storage, loc: storage)
-        net = purge_ae_params(input_shape, ae_net_ckp['ae_state_dict'], code_length, [0, 1, 2, 3, 4, 5, 6], texture, use_selectors)
-        train_loader = DataLoader(train_dset, batch_size=batch_size, shuffle=True, pin_memory=device=='cuda')
-        c = init_center_c(train_loader, net.to(device), texture, debug, True, device)
-        # c = init_center_c(net.to(device), texture, category, device)
+        centers_ = init_center_c(train_loader=train_loader, encoder_net=encoder_net, debug=debug)
         logger.info("Hyperspheres centers evaluated!!!")
         new_ckp = ae_net_cehckpoint.split('.pth')[0]+'_w_centers.pth'
         logger.info(f"New AE dict saved at: {new_ckp}!!!")
-        centers = {k: v for k, v in c.items()}
+        centers = {k: v for k, v in centers_.items()}
         torch.save({
                 'ae_state_dict': ae_net_ckp['ae_state_dict'],
                 'centers': centers
                 }, new_ckp)
-        del net
-        return c
+    return centers
 
 
-# @torch.no_grad()
-# def init_center_c(train_loader: , net: , texture: , debug: , from_main: , device: , eps: float=0.1):
-#     """Initialize hypersphere center as the mean from an initial forward pass on the data.
+@torch.no_grad()
+def init_center_c(train_loader: DataLoader, encoder_net: torch.nn.Module, debug: bool, eps: float=0.1):
+    """Initialize hypersphere center as the mean from an initial forward pass on the data.
     
-#     Parameters
-#     ----------
-#     train_loader : 
-#     net : 
-#     texture : 
-#     debug : 
-#     from_main : 
-#     device : 
-#     eps: 
+    Parameters
+    ----------
+    train_loader : 
+    encoder_net : 
+    debug : 
+    eps: 
 
-#     Returns
-#     -------
+    Returns
+    -------
+    dictionary : dict
+        Dictionary with k='layer name'; v='center featrues'
 
-
-#     """
-#     n_samples = 0
-#     net.eval()
-#     for idx, (data, _) in enumerate(tqdm(train_loader, desc='Init hyperspheres centeres', total=len(train_loader), leave=False)):
-#         if not from_main and not texture and idx >= len(train_loader)//5: break
-#         if debug and idx == 2: break
-#         # get the inputs of the batch
-#         if isinstance(data, list): data = data[0]
-#         data = data.to(device)
-#         n_samples += data.shape[0]
-#         zipped = net(data)
-#         if isinstance(zipped, torch.Tensor):
-#             zipped = [('08', zipped)]
+    """
+    n_samples = 0
+    net.eval()
+    for idx, (data, _) in enumerate(tqdm(train_loader, desc='Init hyperspheres centeres', total=len(train_loader), leave=False)):
+        if debug and idx == 2: break
+        # get the inputs of the batch
+        if isinstance(data, list): data = data[0]
+        data = data.to(device)
+        n_samples += data.shape[0]
+        zipped = net(data)
+        if isinstance(zipped, torch.Tensor):
+            zipped = [('08', zipped)]
         
-#         if idx == 0:
-#             c = {item[0]: torch.zeros_like(item[1][-1], device=device) for item in zipped}
-#         for item in zipped:
-#             c[item[0]] += torch.sum(item[1], dim=0)
+        if idx == 0:
+            c = {item[0]: torch.zeros_like(item[1][-1], device=device) for item in zipped}
+        for item in zipped:
+            c[item[0]] += torch.sum(item[1], dim=0)
     
-#     for k in c.keys():
-#         c[k] = c[k] / n_samples
-#         # If c_i is too close to 0, set to +-eps. Reason: a zero unit can be trivially matched with zero weights.
-#         c[k][(abs(c[k]) < eps) & (c[k] < 0)] = -eps
-#         c[k][(abs(c[k]) < eps) & (c[k] > 0)] = eps
+    for k in c.keys():
+        c[k] = c[k] / n_samples
+        # If c_i is too close to 0, set to +-eps. Reason: a zero unit can be trivially matched with zero weights.
+        c[k][(abs(c[k]) < eps) & (c[k] < 0)] = -eps
+        c[k][(abs(c[k]) < eps) & (c[k] > 0)] = eps
 
-#     return c
+    return c

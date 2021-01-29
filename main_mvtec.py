@@ -211,18 +211,18 @@ def main(args):
         logger.info(f"Loading encoder from: {ae_net_cehckpoint}")
         
         # Init the Encoder network
-        encoder_net = MVtecEncoder(
+        encoder_net = MVtec_Encoder(
                                 input_shape=input_shape,
                                 code_length=args.code_length,
                                 idx_list_enc=args.idx_list_enc,
                                 use_selectors=args.use_selectors
                             )
 
-        ## Eval/Load hyperspeheres centers
-        centers = eval_spheres_centers(train_dset, input_shape, ae_net_cehckpoint, args.code_length, texture, args.debug, args.batch_size, device, args.use_selectors)
-        
         # Load Encoder parameters from pretrianed full AutoEncoder
         purge_ae_params(encoder_net=encoder_net, ae_net_cehckpoint=ae_net_cehckpoint)
+        
+        ## Eval/Load hyperspeheres centers
+        centers = eval_spheres_centers(train_loader=train_loader, encoder_net=encoder_net, ae_net_cehckpoint=ae_net_cehckpoint, debug=args.debug)
         
         if len(args.idx_list_enc) == 0: args.idx_list_enc = [-1]
         keys = np.asarray(list(centers.keys()))[args.idx_list_enc]

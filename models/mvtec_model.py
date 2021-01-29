@@ -97,11 +97,8 @@ class MVtecEncoder(BaseModule):
 
         """
         super().__init__()
-
-        # List of layers' idx to use for the AD task
+        
         self.idx_list_enc = idx_list_enc
-
-        # True (False) if the model has (not) to use Selectors modules
         self.use_selectors = use_selectors
 
         # Single input data shape
@@ -197,13 +194,8 @@ class MVTecDecoder(BaseModule):
         """
         super().__init__()
 
-        # Latent code size
         self.code_length = code_length
-        
-        # deepest_shape
         self.deepest_shape = deepest_shape
-        
-        # output_shape
         self.output_shape = output_shape
 
         # Decoder activation function

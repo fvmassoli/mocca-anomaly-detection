@@ -77,7 +77,7 @@ class Selector(nn.Module):
         return self.fc(input)
 
 
-class MVtecEncoder(BaseModule):
+class MVtec_Encoder(BaseModule):
     """MVtec Encoder network
     
     """
@@ -175,7 +175,7 @@ class MVtecEncoder(BaseModule):
         return zipped[i] if len(self.idx_list_enc) != 0 else z
 
 
-class MVTecDecoder(BaseModule):
+class MVTec_Decoder(BaseModule):
     """MVTec Decoder network
     
     """

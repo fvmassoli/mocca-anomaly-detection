@@ -226,8 +226,8 @@ class MVTec_Decoder(BaseModule):
         return self.conv(h)
 
 
-class MVTecNet_Autoencoder(BaseModule):
-    """Full AutoEncoder network
+class MVTecNet_AutoEncoder(BaseModule):
+    """Full MVTecNet_AutoEncoder network
     
     """
     def __init__(self, input_shape: int, code_length: int, use_selectors: bool):

@@ -11,7 +11,7 @@ import torchvision.transforms as T
 from torch.utils.data import DataLoader
 from torchvision.datasets import ImageFolder
 
-from models.mvtec_model import MVtecEncoder
+from models.mvtec_model import MVtec_Encoder
 
 
 def get_out_dir(args, pretrain: bool, aelr: float, net_name: str="cifar10", training_strategy: str=None):
@@ -97,6 +97,53 @@ def purge_ae_params(encoder_net, ae_net_cehckpoint: str):
     # Load the new state_dict
     encoder_net.load_state_dict(net_dict)
         
+
+def load_mvtec_model_from_checkpoint(input_shape: tuple, code_length: int, idx_list_enc: list, use_selectors: bool, net_cehckpoint: str, purge_ae_params: bool = False):
+    """Load AutoEncoder checkpoint. 
+    
+    Parameters
+    ----------
+    input_shape : tuple
+        Input data shape
+    code_length : int
+        Latent code size
+    idx_list_enc : list
+        List of indexes of layers from which extract features
+    use_selectors : bool
+        True if the model has to use Selector modules
+    net_cehckpoint : str
+        Path to model checkpoint
+    purge_ae_params : bool 
+        True if the checkpoint is relative to an AutoEncoder
+
+    Returns
+    -------
+    encoder_net : nn.Module
+        The Encoder network
+
+    """
+    logger = logging.getLogger()
+
+    encoder_net = MVtec_Encoder(
+                            input_shape=input_shape,
+                            code_length=code_length,
+                            idx_list_enc=idx_list_enc,
+                            use_selectors=use_selectors
+                        )
+    
+    if purge_ae_params:
+    
+        # Load Encoder parameters from pretrianed full AutoEncoder
+        logger.info(f"Loading encoder from: {net_cehckpoint}")
+        purge_ae_params(encoder_net=encoder_net, ae_net_cehckpoint=net_cehckpoint)
+    else:
+
+        st_dict = torch.load(net_cehckpoint)
+        encoder_net.load_state_dict(st_dict['net_state_dict'])
+        logger.info(f"Loaded model from: {net_cehckpoint}")
+    
+    return encoder_net
+
 
 def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module, ae_net_cehckpoint: str, debug: bool):
     """Eval the centers of the hyperspheres at each chosen layer.

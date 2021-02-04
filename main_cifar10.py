@@ -66,21 +66,21 @@ def main(args):
     # Get the device
     device = "cuda" if torch.cuda.is_available() else "cpu"
     
-    # Init DataManager class
-    data_manager = DataManager(
+    # Init DataHolder class
+    data_holder = DataManager(
                         dataset_name=args.dataset_name, 
                         data_path=args.data_path, 
                         normal_class=args.normal_class, 
                         only_test=args.test
-                    )
+                    ).get_data_holder()
+
     # Load data
-    train_loader, test_loader = data_manager.get_loaders(
+    train_loader, test_loader = data_holder.get_loaders(
                                                     batch_size=args.batch_szie, 
                                                     shuffle_train=True, 
                                                     pin_memory=device=="cuda", 
                                                     num_workers=args.n_workers
                                                 )
-        
     
     ### PRETRAIN the full AutoEncoder
     ae_net_cehckpoint = None
@@ -105,6 +105,7 @@ def main(args):
             ae_net_cehckpoint = args.model_ckp
         aelr = float(ae_net_cehckpoint.split('/')[-2].split('-')[4].split('_')[-1])
         out_dir, tmp = get_out_dir(args, pretrain=False, aelr=aelr)
+        
         tb_writer = SummaryWriter(os.path.join(args.output_path, args.dataset_name, str(args.normal_class), 'cifar10/tb_runs_train', tmp))
         
         # Init Encoder
@@ -125,6 +126,7 @@ def main(args):
         net = CIFAR10_Encoder(args.code_length)
         st_dict = torch.load(net_cehckpoint)
         net.load_state_dict(st_dict['net_state_dict'])
+        
         logger.info(f"Loaded model from: {net_cehckpoint}")
         if args.debug:
             idx_list_enc = args.idx_list_enc
@@ -139,6 +141,7 @@ def main(args):
             f"\n\t\t\t\tBoundary       : {boundary}"
             f"\n\t\t\t\tNormal class   : {args.normal_class}"
         )
+
         # Start test
         test(net, test_loader, st_dict['R'], st_dict['c'], device, idx_list_enc, boundary, args)
         

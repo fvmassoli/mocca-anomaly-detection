@@ -16,6 +16,11 @@ def init_conv(out_channels: int, k_size: int = 5):
     out_channels : int
         Output features size
 
+    Returns
+    -------
+    nn.Module : 
+        Conv2d layer
+
     """
     l = nn.Conv2d(
             in_channels=3 if out_channels==32 else out_channels//2, 
@@ -37,6 +42,11 @@ def init_deconv(out_channels: int, k_size: int = 5):
         Kernel size
     out_channels : int
         Input features size
+
+    Returns
+    -------
+    nn.Module : 
+        ConvTranspose2d layer
 
     """
     l = nn.ConvTranspose2d(

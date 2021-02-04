@@ -92,7 +92,18 @@ def main(args):
         ae_net = CIFAR10_Autoencoder(args.code_length)
         
         # Start pretraining
-        ae_net_cehckpoint = pretrain(ae_net, train_loader, out_dir, tb_writer, device, args)
+        ae_net_cehckpoint = pretrain(
+                                ae_net=ae_net, 
+                                train_loader=train_loader, 
+                                out_dir=out_dir, 
+                                tb_writer=tb_writer, 
+                                device=device, 
+                                ae_learning_rate=args.ae_learning_rate, 
+                                ae_weight_decay=args.ae_weight_decay, 
+                                ae_lr_milestones=args.ae_lr_milestones, 
+                                ae_epochs=args.ae_epochs
+                            )
+        
         tb_writer.close()
 
     ### TRAIN the Encoder
@@ -115,7 +126,23 @@ def main(args):
         purge_ae_params(encoder_net=encoder_net, ae_net_cehckpoint=ae_net_cehckpoint)
 
         # Start training
-        net_cehckpoint = train(encoder_net, train_loader, out_dir, tb_writer, device, ae_net_cehckpoint, args)
+        net_cehckpoint = train(
+                            net=encoder_net, 
+                            train_loader=train_loader, 
+                            out_dir=out_dir, 
+                            tb_writer=tb_writer, 
+                            device=device, 
+                            ae_net_cehckpoint=ae_net_cehckpoint, 
+                            idx_list_enc=args.idx_list_enc, 
+                            learning_rate=args.learning_rate, 
+                            weight_decay=args.weight_decay, 
+                            lr_milestones=args.lr_milestones, 
+                            epochs=args.epochs, 
+                            nu=args.nu, 
+                            boundary=args.boundary, 
+                            debug=args.debug
+                        )
+
         tb_writer.close()
 
     ### TEST the Encoder
@@ -143,7 +170,7 @@ def main(args):
         )
 
         # Start test
-        test(net, test_loader, st_dict['R'], st_dict['c'], device, idx_list_enc, boundary, args)
+        test(net=net, test_loader=test_loader, R=st_dict['R'], c=st_dict['c'], device=device, idx_list_enc=idx_list_enc, boundary=boundary)
         
 
 if __name__ == '__main__':

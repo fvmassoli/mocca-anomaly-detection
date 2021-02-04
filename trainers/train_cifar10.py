@@ -125,19 +125,18 @@ def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_write
         Path to model checkpoint
 
     """
-
     logger = logging.getLogger()
     
     # Hook model's layers
     feat_d = {}
-    hooks = hook_model(idx_list_enc, net, "cifar10", feat_d)
+    hooks = hook_model(idx_list_enc=idx_list_enc, net=net, dataset_name="cifar10", feat_d=feat_d)
 
     optimizer = Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = MultiStepLR(optimizer, milestones=lr_milestones, gamma=0.1)
 
     # Initialize hypersphere center c
     logger.info('Initializing center c...')
-    c = init_center_c(feat_d, train_loader, net, device)
+    c = init_center_c(feat_d=feat_d, train_loader=train_loader, net=net, device=device)
     logger.info('Center c initialized.')
 
     R = {k: torch.tensor(0.0, device=device) for k in c.keys()}
@@ -159,9 +158,9 @@ def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_write
             optimizer.zero_grad()
 
             # Update network parameters via backpropagation: forward + backward + optimize
-            outputs = net(inputs)
+            _ = net(inputs)
             
-            dist, loss = eval_ad_loss(feat_d, c, R, nu, boundary)
+            dist, loss = eval_ad_loss(feat_d=feat_d, c=c, R=R, nu=nu, boundary=boundary)
 
             for k in dist.keys():
                 if k not in d_from_c:
@@ -250,20 +249,20 @@ def test(net: torch.nn.Module, test_loader: DataLoader, R: dict, c: dict, device
 
     # Hook model's layers
     feat_d = {}
-    hooks = hook_model(idx_list_enc, net, "cifar10", feat_d)
+    hooks = hook_model(idx_list_enc=idx_list_enc, net=net, dataset_name="cifar10", feat_d=feat_d)
 
     # Testing
     logger.info('Starti testing...')
-    start_time = time.time()
     idx_label_score = []
     net.eval().to(device)
     with torch.no_grad():
         for data in test_loader:
             inputs, labels, idx = data
             inputs = inputs.to(device)
-            outputs = net(inputs)
+            
+            _ = net(inputs)
 
-            scores = get_scores(feat_d, c, R, device, boundary)
+            scores = get_scores(feat_d=feat_d, c=c, R=R, device=device, boundary=boundary)
 
             # Save triples of (idx, label, score) in a list
             idx_label_score += list(zip(idx.cpu().data.numpy().tolist(),

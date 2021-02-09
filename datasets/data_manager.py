@@ -4,7 +4,6 @@ import logging
 
 from .mvtec import MVTec_DataHolder
 from .cifar10 import CIFAR10_DataHolder
-from .shanghai_tech import SHANGHAI_DataHolder
 
 
 AVAILABLE_DATASETS = ('cifar10', 'shanghai', 'MVTec_Anomaly')
@@ -57,7 +56,7 @@ class DataManager(object):
             return CIFAR10_DataHolder(root=self.data_path, normal_class=self.normal_class)
 
         if self.dataset_name == 'shanghai':
-            return SHANGHAI_DataHolder(root=self.data_path, clip_length=self.clip_length)
+            raise NotImplementedError
 
         if self.dataset_name == 'MVTec_Anomaly':
             texture_classes = tuple(["carpet", "grid", "leather", "tile", "wood"])

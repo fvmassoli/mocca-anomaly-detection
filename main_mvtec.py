@@ -20,14 +20,13 @@ from trainers.train_mvtec import pretrain, train, test
 from utils import set_seeds, get_out_dir, purge_ae_params, eval_spheres_centers, load_mvtec_model_from_checkpoint
 
 
-def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out_df: pd.DataFrame, is_texture: bool, input_shape: tuple, idx_list_enc: list, boundary: str, normal_class: str, use_selectors: bool, device: str, debug: bool):
+def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out_df: pd.DataFrame, is_texture: bool, input_shape: tuple, idx_list_enc: list, boundary: str, normal_class: str, use_selectors: bool, device: str):
     """Test a single model.
     
     Parameters
     ----------
     test_loader : DataLoader
         Test data loader
-    
     net_cehckpoint : str
         Path to model checkpoint
     tables : tuple
@@ -48,9 +47,7 @@ def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out
         True if we want to use Selector modules
     device : str
         Device to be used
-    debug : bool
-        If True, set the debug mode
-
+    
     Returns
     -------
     out_df : DataFrame
@@ -66,14 +63,11 @@ def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out
     # Get latent code size from checkpoint name
     code_length = int(net_cehckpoint.split('/')[-2].split('-')[3].split('_')[-1])
     
-    if not debug:
-        # If not in debug mode we read the values from the model checkpoint, 
-        # otherwise, i.e., in debug mode, read the values from args
-        if net_cehckpoint.split('/')[-2].split('-')[-1].split('_')[-1].split('.')[0] == '':
-            idx_list_enc = [7]
-        idx_list_enc = [int(i) for i in net_cehckpoint.split('/')[-2].split('-')[-1].split('_')[-1].split('.')]
-        boundary = net_cehckpoint.split('/')[-2].split('-')[9].split('_')[-1]
-        normal_class = net_cehckpoint.split('/')[-2].split('-')[2].split('_')[-1]
+    if net_cehckpoint.split('/')[-2].split('-')[-1].split('_')[-1].split('.')[0] == '':
+        idx_list_enc = [7]
+    idx_list_enc = [int(i) for i in net_cehckpoint.split('/')[-2].split('-')[-1].split('_')[-1].split('.')]
+    boundary = net_cehckpoint.split('/')[-2].split('-')[9].split('_')[-1]
+    normal_class = net_cehckpoint.split('/')[-2].split('-')[2].split('_')[-1]
     
     logger.info(
         f"Start test with params"
@@ -92,9 +86,21 @@ def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out
                                     net_cehckpoint=net_cehckpoint
                                 )
 
-    ### TEST
-    test_auc, test_b_acc = test(normal_class, texture, net, test_dset, st_dict['R'], st_dict['c'], device, idx_list_enc, boundary, args)
+    st_dict = torch.load(net_cehckpoint)
+    net.load_state_dict(st_dict['net_state_dict'])
     
+    ### TEST
+    test_auc, test_b_acc = test(
+                                normal_class=normal_class, 
+                                is_texture=is_texture, 
+                                net=net, 
+                                test_loader=test_loader, 
+                                R=st_dict['R'], 
+                                c=st_dict['c'], 
+                                device=device,
+                                boundary=boundary
+                            )
+
     table = tables[0] if boundary == 'soft' else tables[1]
     table.add_row([
                 net_cehckpoint.split('/')[-2],
@@ -231,7 +237,20 @@ def main(args):
         ae_net = MVTecNet_AutoEncoder(input_shape=input_shape, code_length=args.code_length, use_selectors=args.use_selectors)
         
         # Start pretraining
-        ae_net_cehckpoint = pretrain(ae_net, train_loader, out_dir, tb_writer, device, args)
+        ae_net_cehckpoint = pretrain(
+                                ae_net=ae_net, 
+                                train_loader=train_loader, 
+                                out_dir=out_dir, 
+                                tb_writer=tb_writer
+                                device=device, 
+                                ae_learning_rate=args.ae_learning_rate,
+                                ae_weight_decay=args.ae_weight_decay, 
+                                ae_lr_milestones=args.ae_lr_milestones,
+                                ae_epochs=args.ae_epochs, 
+                                log_frequency=args.log_frequency, 
+                                batch_accumulation=args.batch_accumulation
+                            )
+        
         tb_writer.close()
 
     ### TRAIN the Encoder
@@ -267,7 +286,21 @@ def main(args):
         centers_ = {k: v for k, v in centers.items() if k in keys}
         
         # Start training
-        net_cehckpoint = train(net, train_dset, out_dir, tb_writer, device, centers_, is_texture, args)
+        net_cehckpoint = train(
+                            net=net, 
+                            train_loader=train_loader, 
+                            centers=centers_,
+                            out_dir=out_dir, 
+                            tb_writer=tb_writer, 
+                            device=device, 
+                            learning_rate=args.learning_rate, 
+                            weight_decay=args.weight_decay, 
+                            lr_milestones=args.lr_milestones, 
+                            epochs=args.epochs, 
+                            nu=args.nu, 
+                            boundary=args.boundary
+                        )
+        
         tb_writer.close()
 
     ### TEST the Encoder
@@ -299,8 +332,7 @@ def main(args):
                             boundary=args.boundary, 
                             normal_class=args.normal_class, 
                             use_selectors=args.use_selectors, 
-                            device=device, 
-                            debug=args.debug
+                            device=device
                         )
         else:
             for model_ckp in tqdm(os.listdir(net_cehckpoint), total=len(os.listdir(net_cehckpoint)), desc="Running on models"):
@@ -314,8 +346,7 @@ def main(args):
                                 boundary=args.boundary, 
                                 normal_class=args.normal_class, 
                                 use_selectors=args.use_selectors, 
-                                device=device, 
-                                debug=args.debug
+                                device=device
                             )
 
         print(table_s)

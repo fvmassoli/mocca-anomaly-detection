@@ -112,7 +112,7 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     return ae_net_cehckpoint
 
 
-def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_writer: SummaryWriter, device: str, ae_net_cehckpoint: str, idx_list_enc: list, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str):
+def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir: str, tb_writer: SummaryWriter, device: str, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str):
     """Train the Encoder network on the one class task.
 
     Parameters
@@ -121,16 +121,14 @@ def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_write
         Encoder network
     train_loader : DataLoader
         Data laoder
+    centers : dict
+        Dictionary containing hyperspheres' center at each layer
     out_dir : str
         Path to checkpoint dir
     tb_writer : SummaryWriter
         Writer on tensorboard
     device : str 
         Device
-    ae_net_cehckpoint : str 
-        Path to autoencoder checkpoint
-    idx_list_enc : list
-        List of indexes of layers from which extract features
     learning_rate : float
         AutoEncoder learning rate
     weight_decay : float
@@ -246,7 +244,7 @@ def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     return net_cehckpoint
         
 
-def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoader, R: dict, c: dict, device: str, idx_list_enc: list, boundary: str):
+def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoader, R: dict, c: dict, device: str, boundary: str):
     """Test the Encoder network.
 
     Parameters
@@ -265,8 +263,6 @@ def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoade
         Dictionary containing the values of the hyperspheres' center for each layer
     device : str 
         Device
-    idx_list_enc : list
-        List of indexes of layers from which extract features
     boundary : str
         Type of boundary
 

@@ -6,6 +6,7 @@ import numpy as np
 from tqdm import tqdm
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
@@ -162,22 +163,20 @@ def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     kk = 1
     net.train().to(device)
     best_loss = 1.e6
-    for epoch in range(epochs):
 
+    for epoch in range(epochs):
         j = 0
         loss_epoch = 0.0
         n_batches = 0
         d_from_c = {}
         optimizer.zero_grad()
-        for idx, (data, _) in enumerate(tqdm(train_loader, total=len(train_loader), leave=False)):
-            if isinstance(data, list): data = data[0]
 
+        for idx, (data, _) in enumerate(tqdm(train_loader, total=len(train_loader), leave=False)):
             data = data.to(device)
 
-            # Update network parameters via backpropagation: forward + backward + optimize
             zipped = net(data)
             
-            dist, loss = eval_ad_loss(zipped, centers, R, args.nu, args.boundary)
+            dist, loss = eval_ad_loss(zipped=zipped, c=centers, R=R, nu=nu, boundary=boundary)
 
             for k in dist.keys():
                 if k not in d_from_c:
@@ -246,7 +245,8 @@ def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     
     return net_cehckpoint
         
-def test(category: str, is_texture: bool, net: torch.nn.Module, test_loader: DataLoader, R: dict, c: dict, device: str, idx_list_enc: list, boundary: str):
+
+def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoader, R: dict, c: dict, device: str, idx_list_enc: list, boundary: str):
     """Test the Encoder network.
 
     Parameters
@@ -289,34 +289,31 @@ def test(category: str, is_texture: bool, net: torch.nn.Module, test_loader: Dat
         for idx, (data, labels) in enumerate(tqdm(test_loader, total=len(test_loader), desc=f"Testing class: {category}", leave=False)):
             data = data.to(device)
             
-            if texture:
-                ## Get 8 patches from each texture image ==> the anomaly score is max{score(pathes)}
+            if is_texture:
+                ## Get 8 patches from each texture image ==> the anomaly score is max{score(patches)}
                 _, _, h, w = data.shape
                 assert h == w, "Height and Width are different!!!"
                 patch_size = 64
-                nb_patches = (h // patch_size) ** 2
-                patches = []
-                start_w = 0
-                start_h = 0
-                for _ in range(nb_patches):
-                    patches.append(data[:, :, start_h:start_h+patch_size, start_w:start_w+patch_size])
-                    start_w += patch_size
-                    if start_w == w:
-                        start_h += patch_size
-                        start_w = 0
+                
+                patches = [
+                        data[:, :, h_:h_+patch_size, w_:w_+patch_size]
+                        for h_ in range(0, h, patch_size)
+                        for w_ in range(0, w, patch_size)
+                    ]
+
                 patches = torch.stack(patches, dim=1) 
                 # patches.shape = (b_size, nb_patches, ch, h, w)
                 # batch.shape = (nb_patches, ch, h, w)
-                scores = torch.stack([get_scores(net(batch), c, R, device, boundary, args.metric, textures=True) for batch in patches])
+                scores = torch.stack([get_scores(zipped=net(batch), c=c, R=R, device=device, boundary=boundary, is_texture=is_texture) for batch in patches])
             else:
-                zipped = net(data)
-                scores = get_scores(zipped, c, R, device, boundary, args.metric, textures=False)
+                scores = get_scores(zipped=net(data), c=c, R=R, device=device, boundary=boundary, is_texture=is_texture)
 
-            idx_label_score += list(zip(labels.cpu().data.numpy().tolist(),
-                                        scores.cpu().data.numpy().tolist()))
-
-            if args.debug and idx == 2:
-                break
+            idx_label_score += list(
+                                zip(
+                                    labels.cpu().data.numpy().tolist(),
+                                    scores.cpu().data.numpy().tolist()
+                                )
+                            )
 
     # Compute AUC
     labels, scores = zip(*idx_label_score)
@@ -327,8 +324,7 @@ def test(category: str, is_texture: bool, net: torch.nn.Module, test_loader: Dat
     fpr, tpr, _ = roc_curve(labels, scores)
     balanced_accuracy = np.max((tpr + (1 - fpr)) / 2)
     auroc = auc(fpr, tpr)
-    balanced_accuracy = np.max((tpr + (1 - fpr)) / 2)
-    logger.info('Test set AUC - B: {:.4f} - {:.4f}'.format(auroc, balanced_accuracy))
+    logger.info(f'Test set results ===>  AUC: {auroc:.4f} --- maxB: {balanced_accuracy:.4f}')
     logger.info('Finished testing!!')
 
     return auroc, balanced_accuracy
@@ -340,69 +336,82 @@ def eval_ad_loss(zipped: dict, c: dict, R: dict, nu: float, boundary: str):
     Parameters
     ----------
     zipped : dict
-    
+        Dictionary containing output features
     c : dict
-    
+        Dictionary of layers centroids
     R : dict 
-    
+        Dictionary of layers radiuses
     nu : float
-    
+        Trade-off parameters
     boundary: str
-
+        Type of boundary
 
     Returns
     -------
-
+    dist : dict
+        Dictionary containing the sum of the distances of the features from the hyperspheres center at each layer
+    loss : torch.tensor
+        Trainign loss
 
     """"
     dist = {}
+
     loss = 1
+    
     if isinstance(zipped, torch.Tensor):
         zipped = [('06', zipped)] # it is the code z of the encoder
-    for item in zipped:
-        k = item[0]
-        v = item[1]
+    
+    for k, v in zipped.items():
         dist[k] = torch.sum((v - c[k].unsqueeze(0)) ** 2, dim=1)
+    
         if boundary == 'soft':
             scores = dist[k] - R[k] ** 2
             loss += R[k] ** 2 + (1 / nu) * torch.mean(torch.max(torch.zeros_like(scores), scores))
+    
         else:
             loss += torch.mean(dist[k])
+    
     return dist, loss
 
 
-def get_scores(zipped: dict, c: dict, R: dict, device: str, boundary: str, metric: str, is_textures: bool):
+def get_scores(zipped: dict, c: dict, R: dict, device: str, boundary: str, is_textures: bool):
     """Evaluate anomaly score. 
     
     Parameters
     ----------
     zipped : dict
-    
+        Dictionary containing output features
     c : dict
-    
-    R : dict
-    
+        Dictionary of layers centroids
+    R : dict 
+        Dictionary of layers radiuses
     device : str
-    
-    boundary : str
-    
-    metric : str
-    
-    is_textures: bool
-
+        Device on which run the computation
+    boundary: str
+        Type of boundary
+    is_textures : bool
+        True if images belong to texture-type classes
 
     Returns
     -------
-
+    scores : float
+        Anomlay score for each image
 
     """
+    # If we are only considering the last layer, then put the tensor into a dictionary
     zipped = [('06', zipped)] if isinstance(zipped, torch.Tensor) else zipped
-    dist = {item[0]: torch.norm(item[1] - c[item[0]].unsqueeze(0), p=metric, dim=1)**metric for item in zipped}
+    
+    dist = {item[0]: torch.norm(item[1] - c[item[0]].unsqueeze(0), p=metric, dim=1) for item in zipped}
+    
     shape = dist[list(dist.keys())[0]].shape[0]
     scores = torch.zeros((shape,), device=device)
+    
     for k in dist.keys():
+    
         if boundary == 'soft':
-            scores += dist[k] - R[k] ** metric # R[k] is a number not a vector
+            scores += dist[k] - R[k] # R[k] is a number not a vector
+    
         else:
             scores += dist[k]
-    return scores.max()/len(list(dist.keys())) if textures else scores/len(list(dist.keys()))
+    
+    return scores.max()/len(list(dist.keys())) if is_textures else scores/len(list(dist.keys()))

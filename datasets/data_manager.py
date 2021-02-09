@@ -51,6 +51,11 @@ class DataManager(object):
     def get_data_holder(self):
         """Returns the data holder for the required dataset
         
+        Rerurns
+        -------
+        MVTec_DataHolder : MVTec_DataHolder
+            Class to handle datasets
+
         """
         if self.dataset_name == 'cifar10':
             return CIFAR10_DataHolder(root=self.data_path, normal_class=self.normal_class)

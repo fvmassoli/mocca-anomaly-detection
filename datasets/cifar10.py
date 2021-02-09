@@ -69,6 +69,7 @@ class CIFAR10_DataHolder(object):
             Path to root folder of the data
         normal_class : 
             Index of the normal class
+
         """
         # Total number of classes = 2, i.e., 0: normal, 1: anomalies 
         self.n_classes = 2 
@@ -147,6 +148,11 @@ class CIFAR10_DataHolder(object):
         num_workers : int 
             Number of dataloader workers
         
+        Retunrs
+        -------
+        loaders : DataLoader
+            Train and test data loaders
+
         """
         train_loader = DataLoader(
                             dataset=self.train_set, 

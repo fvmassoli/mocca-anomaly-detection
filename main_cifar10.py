@@ -29,7 +29,9 @@ def main(args):
             logging.FileHandler('./training.log'),
             logging.StreamHandler()
         ])
+
     logger = logging.getLogger()
+
     if args.train or args.pretrain:
         logger.info(
                 "Start run with params:"
@@ -58,6 +60,7 @@ def main(args):
         if args.model_ckp is None:
             logger.info("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
             sys.exit(0)
+        
         args.normal_class = int(args.model_ckp.split('/')[-2].split('-')[2].split('_')[-1])
 
     # Set seed
@@ -155,12 +158,14 @@ def main(args):
         net.load_state_dict(st_dict['net_state_dict'])
         
         logger.info(f"Loaded model from: {net_cehckpoint}")
+        
         if args.debug:
             idx_list_enc = args.idx_list_enc
             boundary = args.boundary
         else:
             idx_list_enc = [int(i) for i in net_cehckpoint.split('/')[-2].split('-')[-1].split('_')[-1].split('.')]
             boundary = net_cehckpoint.split('/')[-2].split('-')[-3].split('_')[-1]
+        
         logger.info(
             f"Start test with params"
             f"\n\t\t\t\tCode length    : {args.code_length}"

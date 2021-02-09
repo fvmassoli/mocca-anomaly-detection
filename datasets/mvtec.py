@@ -99,6 +99,11 @@ class MVTec_DataHolder(object):
     def get_test_data(self):
         """Load test dataset
 
+        Returns
+        -------
+        MVtecDataset : Dataset
+            Custom dataset to handle MVTec data
+
         """
         return MVtecDataset(
                         root=join(self.data_path, f'MVTec_Anomaly/{category}/test'),
@@ -191,6 +196,11 @@ class MVTec_DataHolder(object):
         num_workers : int 
             Number of dataloader workers
         
+        Returns
+        -------
+        loaders : DataLoader
+            Train and test data loaders
+
         """
         train_loader = DataLoader(
                             dataset=self.get_train_data(return_dataset=True), 

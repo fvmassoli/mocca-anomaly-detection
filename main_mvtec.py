@@ -65,6 +65,7 @@ def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out
     
     if net_cehckpoint.split('/')[-2].split('-')[-1].split('_')[-1].split('.')[0] == '':
         idx_list_enc = [7]
+
     idx_list_enc = [int(i) for i in net_cehckpoint.split('/')[-2].split('-')[-1].split('_')[-1].split('.')]
     boundary = net_cehckpoint.split('/')[-2].split('-')[9].split('_')[-1]
     normal_class = net_cehckpoint.split('/')[-2].split('-')[2].split('_')[-1]
@@ -145,7 +146,9 @@ def main(args):
             logging.FileHandler('./training.log'),
             logging.StreamHandler()
         ])
+
     logger = logging.getLogger()
+    
     if args.train or args.pretrain:
         logger.info(
                 "Start run with params:"
@@ -175,11 +178,15 @@ def main(args):
         if args.model_ckp is None:
             logger.info("CANNOT TEST MODEL WITHOUT A VALID CHECKPOINT")
             sys.exit(0)
+        
         if args.debug:
             args.normal_class = 'carpet'
+        
         else:
+        
             if os.path.isfile(args.model_ckp):
                 args.normal_class = args.model_ckp.split('/')[-2].split('-')[2].split('_')[-1]
+        
             else:
                 args.normal_class = args.model_ckp.split('/')[-3]
 

@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import MultiStepLR
 from sklearn.metrics import roc_curve, roc_auc_score, auc
 
 
-def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_writer: SummaryWriter, device: str, ae_learning_rate: float, ae_weight_decay: float, ae_lr_milestones: list, ae_epochs: int, log_frequency: int, batch_accumulation: int):
+def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_writer: SummaryWriter, device: str, ae_learning_rate: float, ae_weight_decay: float, ae_lr_milestones: list, ae_epochs: int, log_frequency: int, batch_accumulation: int) -> str:
     """Train the full AutoEncoder network.
 
     Parameters
@@ -112,7 +112,7 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     return ae_net_cehckpoint
 
 
-def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir: str, tb_writer: SummaryWriter, device: str, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str):
+def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir: str, tb_writer: SummaryWriter, device: str, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str) -> :
     """Train the Encoder network on the one class task.
 
     Parameters
@@ -244,7 +244,7 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
     return net_cehckpoint
         
 
-def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoader, R: dict, c: dict, device: str, boundary: str):
+def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoader, R: dict, c: dict, device: str, boundary: str) -> [float, float]:
     """Test the Encoder network.
 
     Parameters
@@ -326,7 +326,7 @@ def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoade
     return auroc, balanced_accuracy
 
 
-def eval_ad_loss(zipped: dict, c: dict, R: dict, nu: float, boundary: str):
+def eval_ad_loss(zipped: dict, c: dict, R: dict, nu: float, boundary: str) -> [dict, torch.Tensor]:
     """Evaluate ancoder loss in the one class setting. 
     
     Parameters
@@ -346,7 +346,7 @@ def eval_ad_loss(zipped: dict, c: dict, R: dict, nu: float, boundary: str):
     -------
     dist : dict
         Dictionary containing the sum of the distances of the features from the hyperspheres center at each layer
-    loss : torch.tensor
+    loss : torch.Tensor
         Trainign loss
 
     """"
@@ -370,7 +370,7 @@ def eval_ad_loss(zipped: dict, c: dict, R: dict, nu: float, boundary: str):
     return dist, loss
 
 
-def get_scores(zipped: dict, c: dict, R: dict, device: str, boundary: str, is_textures: bool):
+def get_scores(zipped: dict, c: dict, R: dict, device: str, boundary: str, is_textures: bool) -> float:
     """Evaluate anomaly score. 
     
     Parameters

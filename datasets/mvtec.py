@@ -75,20 +75,20 @@ class MVTec_DataHolder(object):
     def __init__(self, data_path: str, category: str, image_size: int, patch_size: int, rotation_range: tuple, is_texture: bool):
         """Init MVTec data holder class
         
-        Parameters
-        ----------
-        category : str
-            Normal class 
-        image_size : int
-            Side size of the input images
-        patch_size : int
-            Side size of the patches (for textures only)
-        rotation_range : tuple
-            Min and max angle to rotate images
-        is_texture : bool
-            True if the category is texture-type class
+            Parameters
+            ----------
+            category : str
+                Normal class 
+            image_size : int
+                Side size of the input images
+            patch_size : int
+                Side size of the patches (for textures only)
+            rotation_range : tuple
+                Min and max angle to rotate images
+            is_texture : bool
+                True if the category is texture-type class
 
-        """"
+        """
         self.data_path = data_path
         self.category = normal_class 
         self.image_size = image_size 
@@ -96,7 +96,7 @@ class MVTec_DataHolder(object):
         self.rotation_range = rotation_range 
         self.is_texture = is_texture
 
-    def get_test_data(self):
+    def get_test_data(self) -> Dataset:
         """Load test dataset
 
         Returns
@@ -182,7 +182,7 @@ class MVTec_DataHolder(object):
         else:
             return
 
-    def get_loaders(self, batch_size: int, shuffle_train: bool=True, pin_memory: bool=False, num_workers: int = 0):
+    def get_loaders(self, batch_size: int, shuffle_train: bool=True, pin_memory: bool=False, num_workers: int = 0) -> [DataLoader, DataLoader]:
         """Returns MVtec dataloaders
         
         Parameters

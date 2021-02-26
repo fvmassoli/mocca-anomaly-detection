@@ -34,16 +34,13 @@ def main(args):
 
     if args.train or args.pretrain:
         logger.info(
-                "Start run with params:"
+                "Start run with params:\n"
                 f"\n\t\t\t\tPretrain model   : {args.pretrain}"
                 f"\n\t\t\t\tTrain model      : {args.train}"
                 f"\n\t\t\t\tTest model       : {args.test}"
                 f"\n\t\t\t\tBoundary         : {args.boundary}"
-                f"\n\t\t\t\tDataset          : {args.dataset_name}"
-                f"\n\t\t\t\tUse unl data     : {args.unlabelled_data}"
                 f"\n\t\t\t\tNormal class     : {args.normal_class}"
                 f"\n\t\t\t\tBatch size       : {args.batch_size}\n"
-                f"\n\t\t\t\tOptimizer        : {args.optimizer}"
                 f"\n\t\t\t\tPretrain epochs  : {args.ae_epochs}"
                 f"\n\t\t\t\tAE-Learning rate : {args.ae_learning_rate}"
                 f"\n\t\t\t\tAE-milestones    : {args.ae_lr_milestones}"
@@ -71,7 +68,7 @@ def main(args):
     
     # Init DataHolder class
     data_holder = DataManager(
-                        dataset_name=args.dataset_name, 
+                        dataset_name='cifar10', 
                         data_path=args.data_path, 
                         normal_class=args.normal_class, 
                         only_test=args.test
@@ -79,7 +76,7 @@ def main(args):
 
     # Load data
     train_loader, test_loader = data_holder.get_loaders(
-                                                    batch_size=args.batch_szie, 
+                                                    batch_size=args.batch_size, 
                                                     shuffle_train=True, 
                                                     pin_memory=device=="cuda", 
                                                     num_workers=args.n_workers
@@ -88,13 +85,14 @@ def main(args):
     ### PRETRAIN the full AutoEncoder
     ae_net_cehckpoint = None
     if args.pretrain:        
-        out_dir, tmp = get_out_dir(args, pretrain=True, aelr=None, net_name='cifar10')
-        tb_writer = SummaryWriter(os.path.join(args.output_path, args.dataset_name, str(args.normal_class), 'svdd/tb_runs_pretrain', tmp))
+        out_dir, tmp = get_out_dir(args, pretrain=True, aelr=None, dset_name='cifar10')
+        tb_writer = SummaryWriter(os.path.join(args.output_path, 'cifar10', str(args.normal_class), 'tb_runs/pretrain', tmp))
         
         # Init AutoEncoder
         ae_net = CIFAR10_Autoencoder(args.code_length)
         
         # Start pretraining
+        logging.info('Start training the full AutoEcnoder')
         ae_net_cehckpoint = pretrain(
                                 ae_net=ae_net, 
                                 train_loader=train_loader, 
@@ -106,6 +104,7 @@ def main(args):
                                 ae_lr_milestones=args.ae_lr_milestones, 
                                 ae_epochs=args.ae_epochs
                             )
+        logging.info('AutoEncoder trained!!!')
         
         tb_writer.close()
 
@@ -120,7 +119,7 @@ def main(args):
         aelr = float(ae_net_cehckpoint.split('/')[-2].split('-')[4].split('_')[-1])
         out_dir, tmp = get_out_dir(args, pretrain=False, aelr=aelr)
         
-        tb_writer = SummaryWriter(os.path.join(args.output_path, args.dataset_name, str(args.normal_class), 'cifar10/tb_runs_train', tmp))
+        tb_writer = SummaryWriter(os.path.join(args.output_path, 'cifar10', str(args.normal_class), 'tb_runs/train', tmp))
         
         # Init Encoder
         encoder_net = CIFAR10_Encoder(args.code_length)
@@ -183,7 +182,7 @@ if __name__ == '__main__':
     ## General config
     parser.add_argument('-s', '--seed', type=int, default=-1, help='Random seed (default: -1)')
     parser.add_argument('--n_workers', type=int, default=8, help='Number of workers for data loading. 0 means that the data will be loaded in the main process. (default: 8)')
-    parser.add_argument('--output_path', default='./output/cifar10_ad')
+    parser.add_argument('--output_path', default='./output')
     ## Model config
     parser.add_argument('-zl', '--code-length', default=32, type=int, help='Code length (default: 32)')
     parser.add_argument('-ck', '--model-ckp', help='Model checkpoint')
@@ -195,14 +194,14 @@ if __name__ == '__main__':
     parser.add_argument('-aml', '--ae-lr-milestones', type=int, nargs='+', default=[], help='Pretrain milestone')
     parser.add_argument('-ml', '--lr-milestones', type=int, nargs='+', default=[], help='Training milestone')
     ## Data
-    parser.add_argument('-dp', '--data-path', help='Dataset main path')
+    parser.add_argument('-dp', '--data-path', default='./cifar10', help='Dataset main path')
     parser.add_argument('-nc', '--normal-class', type=int, default=5, help='Normal Class (default: 5)')
     ## Training config
     parser.add_argument('-we', '--warm_up_n_epochs', type=int, default=10, help='Warm up epochs (default: 10)')
     parser.add_argument('--use-selectors', action="store_true", help='Use features selector (default: False)')
     parser.add_argument('-tbc', '--train-best-conf', action="store_true", help='Train best configurations (default: False)')
     parser.add_argument('-db', '--debug', action="store_true", help='Debug (default: False)')
-    parser.add_argument('-bs', '--batch-size', type=int, default=200, help='Batch size (default: 200)')
+    parser.add_argument('-bs', '--batch-size', type=int, default=256, help='Batch size (default: 256)')
     parser.add_argument('-bd', '--boundary', choices=("hard", "soft"), default="soft", help='Boundary (default: soft)')
     parser.add_argument('-ptr', '--pretrain', action="store_true", help='Pretrain model (default: False)')
     parser.add_argument('-tr', '--train', action="store_true", help='Train model (default: False)')

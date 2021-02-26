@@ -2,7 +2,7 @@ import numpy as np
 from PIL import Image
 
 import torch
-from torch.utils.data import Subset
+from torch.utils.data import DataLoader, Subset
 
 from torchvision.datasets import CIFAR10
 import torchvision.transforms as transforms
@@ -18,7 +18,7 @@ def get_target_label_idx(labels: np.array, targets: np.array):
     targets : np.array
         Array of target labels
     
-    Return
+    Returns
     ------
     List with indices of target labels
     
@@ -26,7 +26,7 @@ def get_target_label_idx(labels: np.array, targets: np.array):
     return np.argwhere(np.isin(labels, targets)).flatten().tolist()
 
 
-def global_contrast_normalization(x: torch.tensor, scale: str='l1'):
+def global_contrast_normalization(x: torch.tensor, scale: str='l1') -> torch.Tensor:
     """Apply global contrast normalization to tensor, i.e. subtract mean across features (pixels) and normalize by scale,
     which is either the standard deviation, L1- or L2-norm across features (pixels).
     Note this is a *per sample* normalization globally across features (and not across the dataset).
@@ -38,7 +38,7 @@ def global_contrast_normalization(x: torch.tensor, scale: str='l1'):
     scale : str
         Scale
 
-    Return
+    Returns
     ------
     Normalized features
 
@@ -51,7 +51,7 @@ def global_contrast_normalization(x: torch.tensor, scale: str='l1'):
     mean = torch.mean(x)  
     x -= mean
 
-    x_scale = torch.mean(torch.abs(x)) if scale == 'l1' else x_scale = torch.sqrt(torch.sum(x ** 2)) / n_features
+    x_scale = torch.mean(torch.abs(x)) if scale == 'l1' else torch.sqrt(torch.sum(x ** 2)) / n_features
 
     return x / x_scale
 
@@ -71,6 +71,8 @@ class CIFAR10_DataHolder(object):
             Index of the normal class
 
         """
+        self.root = root
+
         # Total number of classes = 2, i.e., 0: normal, 1: anomalies 
         self.n_classes = 2 
         
@@ -81,7 +83,18 @@ class CIFAR10_DataHolder(object):
         self.anomaly_classes = list(range(0, 10))
         self.anomaly_classes.remove(normal_class)
 
-    def __init_train_test_datasets(self):
+        # Init the datasets
+        self.__init_train_test_datasets(normal_class)
+
+    def __init_train_test_datasets(self, normal_class: int) -> None:
+        """Init the datasets.
+        
+        Parameters
+        ----------
+        normal_class : int
+            The index of the non-anomalous class
+        
+        """
         # Pre-computed min and max values (after applying GCN) from train data per class
         min_max = [
                 (-28.94083453598571, 13.802961825439636),
@@ -114,27 +127,27 @@ class CIFAR10_DataHolder(object):
 
         # Init training set
         self.train_set = MyCIFAR10(
-                                root=root, 
+                                root=self.root, 
                                 train=True, 
                                 download=True,
-                                transform=transform, 
-                                target_transform=target_transform
+                                transform=self.transform, 
+                                target_transform=self.target_transform
                             )
 
         # Subset the training set by considering normal class images only
-        train_idx_normal = get_target_label_idx(labels=train_set.targets, targets=self.normal_classes)
-        self.train_set = Subset(train_set, train_idx_normal)
+        train_idx_normal = get_target_label_idx(labels=self.train_set.targets, targets=self.normal_classes)
+        self.train_set = Subset(self.train_set, train_idx_normal)
 
         # Init test set
         self.test_set = MyCIFAR10(
-                                root=root, 
+                                root=self.root, 
                                 train=False, 
                                 download=True,
-                                transform=transform, 
-                                target_transform=target_transform
+                                transform=self.transform, 
+                                target_transform=self.target_transform
                             )
 
-    def get_loaders(self, batch_size: int, shuffle_train: bool=True, pin_memory: bool=False, num_workers: int = 0):
+    def get_loaders(self, batch_size: int, shuffle_train: bool=True, pin_memory: bool=False, num_workers: int = 0) -> [torch.utils.data.DataLoader, torch.utils.data.DataLoader]:
         """Returns CIFAR10 dataloaders
 
         Parameters

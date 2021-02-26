@@ -14,7 +14,7 @@ from torchvision.datasets import ImageFolder
 from models.mvtec_model import MVtec_Encoder
 
 
-def get_out_dir(args, pretrain: bool, aelr: float, net_name: str="cifar10", training_strategy: str=None):
+def get_out_dir(args, pretrain: bool, aelr: float, dset_name: str="cifar10", training_strategy: str=None) -> [str, str]:
     """Creates training output dir
 
     Parameters
@@ -26,35 +26,35 @@ def get_out_dir(args, pretrain: bool, aelr: float, net_name: str="cifar10", trai
         True if pretrain the model
     aelr : float
         Full AutoEncoder learning rate
-    net_name : str
-        Netwrok name
+    dset_name : str
+        Dataset name
     training_strategy : str
         ................................................................
     
+    Returns
+    -------
+    out_dir : str
+        Path to output folder
+    tmp : str
+        String containing infos about the current experiment setup
+
     """
     if pretrain:
-        tmp = (f"pretrain-mn_{net_name}-nc_{args.normal_class}-cl_{args.code_length}-lr_{args.ae_learning_rate}-unl_{args.unlabelled_data}-awd_{args.ae_weight_decay}")
-        if training_strategy is not None:
-            tmp = (f"{training_strategy}-pretrain-mn_{net_name}-nc_{args.normal_class}-cl_{args.code_length}-lr_{args.ae_learning_rate}-unl_{args.unlabelled_data}")
-        out_dir = os.path.join(args.output_path, args.dataset_name, str(args.normal_class), net_name, 'pretrain', tmp)
+        tmp = (f"pretrain-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-lr_{args.ae_learning_rate}-awd_{args.ae_weight_decay}")
+        out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), 'pretrain', tmp)
     else:
         tmp = (
-            f"train-mn_{net_name}-nc_{args.normal_class}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
-            f"wd_{args.weight_decay}-bd_{args.boundary}-unl_{args.unlabelled_data}-alr_{aelr}-sl_{args.use_selectors}-ep_{args.epochs}-ile_{'.'.join(map(str, args.idx_list_enc))}"
+            f"train-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
+            f"wd_{args.weight_decay}-bd_{args.boundary}-alr_{aelr}-sl_{args.use_selectors}-ep_{args.epochs}-ile_{'.'.join(map(str, args.idx_list_enc))}"
         )
-        if training_strategy is not None:
-            tmp = (
-                f"{training_strategy}-train-mn_{net_name}-nc_{args.normal_class}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
-                f"wd_{args.weight_decay}-bd_{args.boundary}-unl_{args.unlabelled_data}-alr_{aelr}-sl_{args.use_selectors}-ep_{args.epochs}-ile_{'.'.join(map(str, args.idx_list_enc))}"
-            )
-        str__ = 'train_best_conf' if args.train_best_conf else 'train'
-        out_dir = os.path.join(args.output_path, args.dataset_name, str(args.normal_class), net_name, str__, tmp)
+        out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), 'train', tmp)
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
+
     return out_dir, tmp
 
 
-def set_seeds(seed: int):
+def set_seeds(seed: int) -> None:
     """Set all seeds.
     
     Parameters
@@ -70,7 +70,7 @@ def set_seeds(seed: int):
         torch.manual_seed(seed)
 
 
-def purge_ae_params(encoder_net, ae_net_cehckpoint: str):
+def purge_ae_params(encoder_net, ae_net_cehckpoint: str) -> None:
     """Load Encoder preatrained weights from the full AutoEncoder.
     After the pretraining phase, we don't need the full AutoEncoder parameters, we only need the Encoder
     
@@ -98,7 +98,7 @@ def purge_ae_params(encoder_net, ae_net_cehckpoint: str):
     encoder_net.load_state_dict(net_dict)
         
 
-def load_mvtec_model_from_checkpoint(input_shape: tuple, code_length: int, idx_list_enc: list, use_selectors: bool, net_cehckpoint: str, purge_ae_params: bool = False):
+def load_mvtec_model_from_checkpoint(input_shape: tuple, code_length: int, idx_list_enc: list, use_selectors: bool, net_cehckpoint: str, purge_ae_params: bool = False) -> torch.nn.Module:
     """Load AutoEncoder checkpoint. 
     
     Parameters
@@ -118,7 +118,7 @@ def load_mvtec_model_from_checkpoint(input_shape: tuple, code_length: int, idx_l
 
     Returns
     -------
-    encoder_net : nn.Module
+    encoder_net : torch.nn.Module
         The Encoder network
 
     """
@@ -145,7 +145,7 @@ def load_mvtec_model_from_checkpoint(input_shape: tuple, code_length: int, idx_l
     return encoder_net
 
 
-def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module, ae_net_cehckpoint: str, debug: bool):
+def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module, ae_net_cehckpoint: str, debug: bool) -> dict:
     """Eval the centers of the hyperspheres at each chosen layer.
 
     Parameters
@@ -166,27 +166,35 @@ def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module,
     
     """
     logger = logging.getLogger()
+    
     # If centers are found, then load and return
     if os.path.exists(ae_net_cehckpoint[:-4]+'_w_centers.pth'):
+    
         logger.info("Found hyperspheres centers")
         ae_net_ckp = torch.load(ae_net_cehckpoint[:-4]+'_w_centers.pth', map_location=lambda storage, loc: storage)
+
         centers = {k: v.to(device) for k, v in ae_net_ckp['centers'].items()}
     else:
+    
         logger.info("Hyperspheres centers not found... evaluating...")
         centers_ = init_center_c(train_loader=train_loader, encoder_net=encoder_net, debug=debug)
+        
         logger.info("Hyperspheres centers evaluated!!!")
         new_ckp = ae_net_cehckpoint.split('.pth')[0]+'_w_centers.pth'
+        
         logger.info(f"New AE dict saved at: {new_ckp}!!!")
         centers = {k: v for k, v in centers_.items()}
+        
         torch.save({
                 'ae_state_dict': ae_net_ckp['ae_state_dict'],
                 'centers': centers
                 }, new_ckp)
+
     return centers
 
 
 @torch.no_grad()
-def init_center_c(train_loader: DataLoader, encoder_net: torch.nn.Module, debug: bool, eps: float=0.1):
+def init_center_c(train_loader: DataLoader, encoder_net: torch.nn.Module, debug: bool, eps: float=0.1) -> dict:
     """Initialize hypersphere center as the mean from an initial forward pass on the data.
     
     Parameters
@@ -203,24 +211,31 @@ def init_center_c(train_loader: DataLoader, encoder_net: torch.nn.Module, debug:
 
     """
     n_samples = 0
+
     net.eval()
     for idx, (data, _) in enumerate(tqdm(train_loader, desc='Init hyperspheres centeres', total=len(train_loader), leave=False)):
         if debug and idx == 2: break
+    
         # get the inputs of the batch
         if isinstance(data, list): data = data[0]
+    
         data = data.to(device)
         n_samples += data.shape[0]
+    
         zipped = net(data)
+    
         if isinstance(zipped, torch.Tensor):
             zipped = [('08', zipped)]
         
         if idx == 0:
             c = {item[0]: torch.zeros_like(item[1][-1], device=device) for item in zipped}
+    
         for item in zipped:
             c[item[0]] += torch.sum(item[1], dim=0)
     
     for k in c.keys():
         c[k] = c[k] / n_samples
+    
         # If c_i is too close to 0, set to +-eps. Reason: a zero unit can be trivially matched with zero weights.
         c[k][(abs(c[k]) < eps) & (c[k] < 0)] = -eps
         c[k][(abs(c[k]) < eps) & (c[k] > 0)] = eps

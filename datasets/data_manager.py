@@ -39,15 +39,13 @@ class DataManager(object):
         # Immediately check if the data are available
         self.__check_dataset()
 
-    def __check_dataset(self):
+    def __check_dataset(self) -> None:
         """Checks if the required dataset is available
         
         """
         assert self.dataset_name in AVAILABLE_DATASETS, f"{self.dataset_name} dataset is not available"
         assert os.path.exists(self.data_path), f"{self.dataset_name} dataset is available but not found at: \n{self.data_path}"
-        sys.exit(0)
-
-
+        
     def get_data_holder(self):
         """Returns the data holder for the required dataset
         

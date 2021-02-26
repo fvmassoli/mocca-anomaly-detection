@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def init_conv(out_channels: int, k_size: int = 5):
+def init_conv(out_channels: int, k_size: int = 5) -> nn.Module:
     """ Init convolutional layers.
 
     Parameters
@@ -33,7 +33,7 @@ def init_conv(out_channels: int, k_size: int = 5):
     return l
     
 
-def init_deconv(out_channels: int, k_size: int = 5):
+def init_deconv(out_channels: int, k_size: int = 5) -> nn.Module:
     """ Init deconv layers.
 
     Parameters
@@ -59,13 +59,24 @@ def init_deconv(out_channels: int, k_size: int = 5):
     nn.init.xavier_uniform_(l.weight, gain=nn.init.calculate_gain('leaky_relu'))
     return l
 
+def init_bn(num_features: int) -> nn.Module:
+    """ Init BatchNorm layers.
+
+    Parameters
+    ----------
+    num_features : int
+        Number of input features
+
+    """
+    return nn.BatchNorm2d(num_features=num_features, eps=1e-04, affine=False)
+
 
 class BaseNet(nn.Module):
     """Base class for all neural networks.
     
     """
     def __init__(self):
-        super().__init__()
+        super(BaseNet, self).__init__()
 
         # init Logger to print model infos
         self.logger = logging.getLogger(self.__class__.__name__)
@@ -73,18 +84,7 @@ class BaseNet(nn.Module):
         # List of input/output features depths for the convolutional layers
         self.output_features_sizes = [32, 64, 128]
     
-    def __init_bn(self, num_features: int):
-            """ Init BatchNorm layers.
-
-            Parameters
-            ----------
-            num_features : int
-                Number of input features
-
-            """
-            return nn.BatchNorm2d(num_features=num_features, eps=1e-04, affine=False)
-
-    def summary(self):
+    def summary(self) -> None:
         """Network summary.
         
         """
@@ -107,20 +107,20 @@ class CIFAR10_Encoder(BaseNet):
             Latent code size
         
         """
-        super().__init__()
+        super(CIFAR10_Encoder, self).__init__()
         
         # Init Conv layers
         self.conv1, self.conv2, self.conv3 = [init_conv(out_channels) for out_channels in self.output_features_sizes]
         
         # Init BN layers
-        self.bnd1, self.bnd2, self.bnd3 = [self.__init_bn(num_features) for num_features in self.output_features_sizes]
+        self.bnd1, self.bnd2, self.bnd3 = [init_bn(num_features) for num_features in self.output_features_sizes]
 
         # Init all other layers
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.fc1 = nn.Linear(in_features=128 * 4 * 4, out_features=code_length, bias=False)
     
-    def forward(self, *input: Any):
-        x = self.conv1(input)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.conv1(x)
         x = self.pool(F.leaky_relu(self.bnd1(x)))
         x = self.conv2(x)
         x = self.pool(F.leaky_relu(self.bnd2(x)))
@@ -143,19 +143,21 @@ class CIFAR10_Decoder(BaseNet):
             Latent code size
 
         """
-        super().__init__()
+        super(CIFAR10_Decoder, self).__init__()
 
         self.rep_dim = code_length
+        
+        self.bn1d = nn.BatchNorm1d(self.rep_dim, eps=1e-04, affine=False)
         
         # Build the Decoder
         self.deconv1 = nn.ConvTranspose2d(int(self.rep_dim / (4 * 4)), 128, 5, bias=False, padding=2)
         self.deconv2, self.deconv3, self.deconv4 = [init_deconv(out_channels) for out_channels in self.output_features_sizes[::-1]]
 
         # Init BN layers
-        self.bnd4, self.bnd5, self.bnd6 = [self.__init_bn(num_features) for num_features in self.output_features_sizes[::-1]] 
+        self.bnd4, self.bnd5, self.bnd6 = [init_bn(num_features) for num_features in self.output_features_sizes[::-1]] 
 
-    def forward(self, *input: Any):
-        x = self.bn1d(input)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        x = self.bn1d(x)
         x = x.view(x.size(0), int(self.rep_dim / (4 * 4)), 4, 4)
         x = F.leaky_relu(x)
         x = self.deconv1(x)
@@ -191,7 +193,7 @@ class CIFAR10_Autoencoder(BaseNet):
         # Build the Decoder
         self.decoder = CIFAR10_Decoder(code_length=code_length)
         
-    def forward(self, *input: Any):
-        z = self.encoder(input)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        z = self.encoder(x)
         z = self.bn1d(z)
         return self.decoder(z)

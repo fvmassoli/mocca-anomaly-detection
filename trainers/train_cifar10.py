@@ -15,12 +15,12 @@ from tensorboardX import SummaryWriter
 from sklearn.metrics import roc_auc_score
 
 
-def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_writer: SummaryWriter, device: str, ae_learning_rate: float, ae_weight_decay: float, ae_lr_milestones: list, ae_epochs: int):
+def pretrain(ae_net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_writer: SummaryWriter, device: str, ae_learning_rate: float, ae_weight_decay: float, ae_lr_milestones: list, ae_epochs: int) -> str:
     """Train the full AutoEncoder network.
 
     Parameters
     ----------
-    ae_net : nn.Module
+    ae_net : torch.nn.Module
         AutoEncoder network
     train_loader : DataLoader
         Data laoder
@@ -53,17 +53,21 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     scheduler = MultiStepLR(optimizer, milestones=ae_lr_milestones, gamma=0.1)
 
     for epoch in range(ae_epochs):
-
         loss_epoch = 0.0
         n_batches = 0
-        for data in train_loader:
-            inputs, _, _ = data
-            inputs = inputs.to(device)
+
+        for (data, _, _) in train_loader:
+            data = data.to(device)
+            
             optimizer.zero_grad()
-            outputs = ae_net(inputs)
-            scores = torch.sum((outputs - inputs) ** 2, dim=tuple(range(1, outputs.dim())))
+
+            outputs = ae_net(data)
+            
+            scores = torch.sum((outputs - data) ** 2, dim=tuple(range(1, outputs.dim())))
+            
             loss = torch.mean(scores)
             loss.backward()
+            
             optimizer.step()
 
             loss_epoch += loss.item()
@@ -85,12 +89,12 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     return ae_net_cehckpoint
 
 
-def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_writer: SummaryWriter, device: str, ae_net_cehckpoint: str, idx_list_enc: list, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str, debug: bool):
+def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_writer: SummaryWriter, device: str, ae_net_cehckpoint: str, idx_list_enc: list, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str, debug: bool) -> str:
     """Train the Encoder network on the one class task.
 
     Parameters
     ----------
-    net : nn.Module
+    net : torch.nn.Module
         Encoder network
     train_loader : DataLoader
         Data laoder
@@ -127,9 +131,11 @@ def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     """
     logger = logging.getLogger()
     
+    net.train().to(device)
+
     # Hook model's layers
     feat_d = {}
-    hooks = hook_model(idx_list_enc=idx_list_enc, net=net, dataset_name="cifar10", feat_d=feat_d)
+    hooks = hook_model(idx_list_enc=idx_list_enc, model=net, dataset_name="cifar10", feat_d=feat_d)
 
     optimizer = Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
     scheduler = MultiStepLR(optimizer, milestones=lr_milestones, gamma=0.1)
@@ -143,22 +149,17 @@ def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_write
 
     logger.info('Start training...')
     warm_up_n_epochs = 10
-    net.train().to(device)
+    
     for epoch in range(epochs):
-
         loss_epoch = 0.0
         n_batches = 0
         d_from_c = {}
-        epoch_start_time = time.time()
-        for data in train_loader:
-            inputs, _, _ = data
-            inputs = inputs.to(device)
-
-            # Zero the network parameter gradients
-            optimizer.zero_grad()
+        
+        for (data, _, _) in train_loader:
+            data = data.to(device)
 
             # Update network parameters via backpropagation: forward + backward + optimize
-            _ = net(inputs)
+            _ = net(data)
             
             dist, loss = eval_ad_loss(feat_d=feat_d, c=c, R=R, nu=nu, boundary=boundary)
 
@@ -167,9 +168,10 @@ def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_write
                     d_from_c[k] = 0
                 d_from_c[k] += torch.mean(dist[k]).item()
 
+            optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-
+            
             # Update hypersphere radius R on mini-batch distances
             # only after the warm up epochs
             if (boundary == 'soft') and (epoch >= warm_up_n_epochs):
@@ -217,12 +219,12 @@ def train(net: torch.nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     return net_cehckpoint
         
 
-def test(net: torch.nn.Module, test_loader: DataLoader, R: dict, c: dict, device: str, idx_list_enc: list, boundary: str):
+def test(net: torch.nn.Module, test_loader: DataLoader, R: dict, c: dict, device: str, idx_list_enc: list, boundary: str) -> float:
     """Test the Encoder network.
 
     Parameters
     ----------
-    net : nn.Module
+    net : torch.nn.Module
         Encoder network
     test_loader : DataLoader
         Data laoder
@@ -249,7 +251,7 @@ def test(net: torch.nn.Module, test_loader: DataLoader, R: dict, c: dict, device
 
     # Hook model's layers
     feat_d = {}
-    hooks = hook_model(idx_list_enc=idx_list_enc, net=net, dataset_name="cifar10", feat_d=feat_d)
+    hooks = hook_model(idx_list_enc=idx_list_enc, model=net, dataset_name="cifar10", feat_d=feat_d)
 
     # Testing
     logger.info('Starti testing...')
@@ -283,7 +285,7 @@ def test(net: torch.nn.Module, test_loader: DataLoader, R: dict, c: dict, device
     return 100. * test_auc
 
 
-def hook_model(idx_list_enc: list, model: torch.nn.Module, dataset_name: str, feat_d: dict):
+def hook_model(idx_list_enc: list, model: torch.nn.Module, dataset_name: str, feat_d: dict) -> None:
     """Create hooks for model's layers.
     
     Parameters
@@ -326,7 +328,7 @@ def hook_model(idx_list_enc: list, model: torch.nn.Module, dataset_name: str, fe
 
 
 @torch.no_grad()
-def init_center_c(feat_d: dict, train_loader: DataLoader, net: torch.nn.Module, device: str, eps: float = 0.1):
+def init_center_c(feat_d: dict, train_loader: DataLoader, net: torch.nn.Module, device: str, eps: float = 0.1) -> dict:
     """Initialize hyperspheres' center c as the mean from an initial forward pass on the data.
     
     Parameters
@@ -348,13 +350,13 @@ def init_center_c(feat_d: dict, train_loader: DataLoader, net: torch.nn.Module, 
 
     """
     n_samples = 0
+    
     net.eval()
-    for idx, data in enumerate(tqdm(train_loader, desc='init hyperspheres centeres', total=len(train_loader), leave=False)):
-        
-        # get the inputs of the batch
-        inputs = data[0]
-        inputs = inputs.to(device)
-        outputs = net(inputs)
+
+    for idx, (data, _, _) in enumerate(tqdm(train_loader, desc='init hyperspheres centeres', total=len(train_loader), leave=False)):
+        data = data.to(device)
+    
+        outputs = net(data)
         n_samples += outputs.shape[0]
         
         if idx == 0:
@@ -372,7 +374,7 @@ def init_center_c(feat_d: dict, train_loader: DataLoader, net: torch.nn.Module, 
     return c
 
 
-def eval_ad_loss(feat_d: dict, c: dict, R: dict, nu: float, boundary: str):
+def eval_ad_loss(feat_d: dict, c: dict, R: dict, nu: float, boundary: str) -> [dict, torch.Tensor]:
     """Eval training loss.
     
     Parameters
@@ -412,7 +414,7 @@ def eval_ad_loss(feat_d: dict, c: dict, R: dict, nu: float, boundary: str):
     return dist, loss
 
 
-def get_scores(feat_d: dict, c: dict, R: dict, device: str, boundary: str):
+def get_scores(feat_d: dict, c: dict, R: dict, device: str, boundary: str) -> float:
     """Eval anomaly score.
 
     Parameters

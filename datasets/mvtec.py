@@ -62,10 +62,10 @@ class CustomTensorDataset(TensorDataset):
         super(CustomTensorDataset, self).__init__(self.data)
         
     def __len__(self):
-        return self.tensors[0].size(0)
+        return self.data.shape[0]
     
     def __getitem__(self, index):
-        return tuple(tensor[index] for tensor in self.tensors), 0
+        return self.data[index], 0
   
 
 class MVTec_DataHolder(object):

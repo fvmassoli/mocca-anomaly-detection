@@ -115,7 +115,7 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     return ae_net_cehckpoint
 
 
-def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir: str, tb_writer: SummaryWriter, device: str, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str) -> str:
+def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir: str, tb_writer: SummaryWriter, device: str, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str, batch_accumulation: int, warm_up_n_epochs: int, log_frequency: int) -> str:
     """Train the Encoder network on the one class task.
 
     Parameters
@@ -144,6 +144,11 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
         Value of the trade-off parameter
     boundary : str
         Type of boundary
+    batch_accumulation : int
+
+    warm_up_n_epochs : int
+
+    log_frequency: int
 
     Returns
     -------
@@ -188,8 +193,8 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
 
             loss.backward()
             j += 1
-            if args.batch_accumulation != -1:
-                if j == args.batch_accumulation:
+            if batch_accumulation != -1:
+                if j == batch_accumulation:
                     j = 0
                     optimizer.step()
                     optimizer.zero_grad()
@@ -198,28 +203,26 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
                 optimizer.zero_grad()
 
             # Update hypersphere radius R on mini-batch distances
-            if (args.boundary == 'soft') and (epoch >= warm_up_n_epochs):
-                # R.data = torch.tensor(get_radius(dist, args.nu), device=device)
+            if (boundary == 'soft') and (epoch >= warm_up_n_epochs):
+                # R.data = torch.tensor(get_radius(dist, nu), device=device)
                 for k in R.keys():
                     R[k].data = torch.tensor(
-                                        np.quantile(np.sqrt(dist[k].clone().data.cpu().numpy()), 1 - args.nu), 
+                                        np.quantile(np.sqrt(dist[k].clone().data.cpu().numpy()), 1 - nu), 
                                         device=device
                                     )
 
             loss_epoch += loss.item()
             n_batches += 1
 
-            if args.debug and idx == 2:
-                break
             if np.isnan(loss.item()):
                 logger.info("Found nan values into loss")
                 sys.exit(0)
 
-            if idx != 0 and idx % ((len(train_loader)//args.log_frequency)+1) == 0:
+            if idx != 0 and idx % ((len(train_loader)//log_frequency)+1) == 0:
                 # log epoch statistics
                 logger.info(f"TRAIN at epoch: {epoch+1} ([{idx}]/[{len(train_loader)}]) ==> Objective Loss: {loss_epoch/idx:.4f}")
                 tb_writer.add_scalar('train/objective_loss', loss_epoch/idx, kk)
-                for en, k in enumerate(d_from_c.keys()):
+                for _, k in enumerate(d_from_c.keys()):
                     logger.info(
                         f"[{k}] -- Radius: {R[k]:.4f} - "
                         f"Dist from sphere centr: {d_from_c[k]/idx:.4f}"
@@ -229,7 +232,7 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
                 kk += 1
 
         scheduler.step()
-        if epoch in args.lr_milestones:
+        if epoch in lr_milestones:
             logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_lr()[0]))
 
         if (loss_epoch/len(train_loader)) <= best_loss:
@@ -362,7 +365,7 @@ def eval_ad_loss(zipped: dict, c: dict, R: dict, nu: float, boundary: str) -> [d
     loss = 1
     
     if isinstance(zipped, torch.Tensor):
-        zipped = [('06', zipped)] # it is the code z of the encoder
+        zipped = {'08': zipped}
     
     for k, v in zipped.items():
         dist[k] = torch.sum((v - c[k].unsqueeze(0)) ** 2, dim=1)

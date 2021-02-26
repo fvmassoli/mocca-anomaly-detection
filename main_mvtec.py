@@ -307,7 +307,10 @@ def main(args):
                             lr_milestones=args.lr_milestones, 
                             epochs=args.epochs, 
                             nu=args.nu, 
-                            boundary=args.boundary
+                            boundary=args.boundary,
+                            batch_accumulation=args.batch_accumulation,
+                            warm_up_n_epochs=args.warm_up_n_epochs, 
+                            log_frequency=args.log_frequency
                         )
         
         tb_writer.close()

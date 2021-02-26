@@ -1,6 +1,6 @@
 # MOCCA: Multi-Layer One-Class Classification for Anomaly Detection
 
-This repository contains the code relative to the paper "[MOCCA: Multi-Layer One-Class Classification for Anomaly Detection](https://...)" by Fabio Valerio Massoli (ISTI - CNR), Fabrizio Falchi (ISTI - CNR), Alperen Kantarci (), Şeymanur Akti (), Hazim Kemal Ekenel (), Giuseppe Amato (ISTI - CNR).
+This repository contains the code relative to the paper "[MOCCA: Multi-Layer One-Class Classification for Anomaly Detection](https://...)" by Fabio Valerio Massoli (ISTI - CNR), Fabrizio Falchi (ISTI - CNR), Alperen Kantarci (ITU), Şeymanur Akti (ITU), Hazim Kemal Ekenel (ITU), Giuseppe Amato (ISTI - CNR).
 
 It reports a new technique to detect anomalies... 
 

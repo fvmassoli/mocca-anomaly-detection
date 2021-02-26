@@ -24,7 +24,7 @@ def init_conv_blocks(channel_in: int, channel_out: int, activation_fn: nn) -> nn
                 Output features size
 
             """
-            return DownsampleBlock(channel_in=channel_in, channel_out=channel_out, activation_fn=self.activation_fn)
+            return DownsampleBlock(channel_in=channel_in, channel_out=channel_out, activation_fn=activation_fn)
 
 
 class Selector(nn.Module):
@@ -77,7 +77,7 @@ class Selector(nn.Module):
         return self.fc(input)
 
 
-class MVtec_Encoder(BaseModule):
+class MVTec_Encoder(BaseModule):
     """MVtec Encoder network
     
     """
@@ -140,8 +140,8 @@ class MVtec_Encoder(BaseModule):
         """
         return self.last_depth, self.deepest_shape
 
-    def forward(self, *input: torch.Tensor) -> torch.Tensor:
-        o1 = self.conv(input)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        o1 = self.conv(x)
         o2 = self.res(self.activation_fn(o1))
         o3 = self.dwn1(o2)
         o4 = self.dwn2(o3)
@@ -220,8 +220,8 @@ class MVTec_Decoder(BaseModule):
             nn.Conv2d(in_channels=CHANNELS[0], out_channels=3, kernel_size=1, bias=False)
         )
 
-    def forward(self, *input: torch.Tensor) -> torch.Tensor:
-        h = self.fc(input)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        h = self.fc(x)
         h = h.view(len(h), *self.deepest_shape)
         return self.conv(h)
 
@@ -249,7 +249,7 @@ class MVTecNet_AutoEncoder(BaseModule):
         self.input_shape = input_shape
         
         # Build Encoder
-        self.encoder = MVtecEncoder(
+        self.encoder = MVTec_Encoder(
                                 input_shape=input_shape,
                                 code_length=code_length,
                                 idx_list_enc=[],
@@ -259,15 +259,15 @@ class MVTecNet_AutoEncoder(BaseModule):
         last_depth, deepest_shape = self.encoder.get_depths_info()
 
         # Build Decoder
-        self.decoder = MVtecDecoder(
+        self.decoder = MVTec_Decoder(
                                 code_length=code_length,
                                 deepest_shape=deepest_shape,
                                 last_depth=last_depth,
                                 output_shape=input_shape
                             )
 
-    def forward(self, *input: torch.Tensor)  -> torch.Tensor:
-        z = self.encoder(input)
+    def forward(self, x: torch.Tensor)  -> torch.Tensor:
+        z = self.encoder(x)
         x_r = self.decoder(z)
         x_r = x_r.view(-1, *self.input_shape)
         return x_r

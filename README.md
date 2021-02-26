@@ -20,10 +20,16 @@ It reports a new technique to detect anomalies...
 The current version of the code requires python 3.6 and pytorch ...
 
 
-Minimal usage:
+Minimal usage (CIFAR10):
 
 ```
-python -W ignore ...
+python3 main_cifar10.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to CIFAR10 dataset>
+```
+
+Minimal usage (MVTec):
+
+```
+python3 main_mvtec.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to CIFAR10 dataset> --use-selector
 ```
 
 

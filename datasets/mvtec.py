@@ -90,7 +90,7 @@ class MVTec_DataHolder(object):
 
         """
         self.data_path = data_path
-        self.category = normal_class 
+        self.category = category 
         self.image_size = image_size 
         self.patch_size = patch_size 
         self.rotation_range = rotation_range 
@@ -106,9 +106,9 @@ class MVTec_DataHolder(object):
 
         """
         return MVtecDataset(
-                        root=join(self.data_path, f'MVTec_Anomaly/{category}/test'),
+                        root=join(self.data_path, f'{self.category}/test'),
                         transform=T.Compose([
-                                        T.Resize(image_size, interpolation=Image.BILINEAR),
+                                        T.Resize(self.image_size, interpolation=Image.BILINEAR),
                                         T.ToTensor(),
                                         T.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
                                     ])
@@ -123,10 +123,10 @@ class MVTec_DataHolder(object):
             False for preprocessing purpose only
 
         """
-        train_data_dir = join(self.data_path, f'MVTec_Anomaly/{category}/train/')
+        train_data_dir = join(self.data_path, f'{self.category}/train/')
         
         # Preprocessed output data path
-        cache_main_dir = join(self.data_path, f'MVTec_Anomaly/processed/{category}')
+        cache_main_dir = join(self.data_path, f'processed/{self.category}')
         os.makedirs(cache_main_dir, exist_ok=True)
         cache_file = f'{cache_main_dir}/{self.category}_train_dataset_i-{self.image_size}_p-{self.patch_size}_r-{self.rotation_range[0]}--{self.rotation_range[1]}.npy'
 
@@ -166,7 +166,7 @@ class MVTec_DataHolder(object):
             nb_epochs = 50000 // len(train_dataset.imgs)
             data_loader = DataLoader(dataset=train_dataset, batch_size=1024, pin_memory=True)
 
-            for epoch in tqdm(range(nb_epochs), total=nb_epochs, desc=f"Creating cache for: {category}"):
+            for epoch in tqdm(range(nb_epochs), total=nb_epochs, desc=f"Creating cache for: {self.category}"):
                 if epoch == 0:
                     cache_np = [x.numpy() for x, _ in tqdm(data_loader, total=len(data_loader), desc=f'Caching epoch: {epoch+1}/{nb_epochs+1}', leave=False)]
                 else:

@@ -12,6 +12,7 @@ from torch.optim import Adam, SGD
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import MultiStepLR
 
+from tensorboardX import SummaryWriter
 from sklearn.metrics import roc_curve, roc_auc_score, auc
 
 
@@ -68,6 +69,8 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
         n_batches = 0
         optimizer.zero_grad()
         for idx, (data, _) in enumerate(tqdm(train_loader, total=len(train_loader), leave=False)):
+            if idx == 3 : break
+            
             if isinstance(data, list): data = data[0]
 
             data = data.to(device)
@@ -112,7 +115,7 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     return ae_net_cehckpoint
 
 
-def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir: str, tb_writer: SummaryWriter, device: str, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str) -> :
+def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir: str, tb_writer: SummaryWriter, device: str, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str) -> str:
     """Train the Encoder network on the one class task.
 
     Parameters
@@ -170,6 +173,8 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
         optimizer.zero_grad()
 
         for idx, (data, _) in enumerate(tqdm(train_loader, total=len(train_loader), leave=False)):
+            if idx == 3 : break
+            
             data = data.to(device)
 
             zipped = net(data)
@@ -280,7 +285,9 @@ def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoade
     logger.info('Start testing...')
     
     idx_label_score = []
+    
     net.eval().to(device)
+    
     with torch.no_grad():
         for idx, (data, labels) in enumerate(tqdm(test_loader, total=len(test_loader), desc=f"Testing class: {category}", leave=False)):
             data = data.to(device)
@@ -349,7 +356,7 @@ def eval_ad_loss(zipped: dict, c: dict, R: dict, nu: float, boundary: str) -> [d
     loss : torch.Tensor
         Trainign loss
 
-    """"
+    """
     dist = {}
 
     loss = 1

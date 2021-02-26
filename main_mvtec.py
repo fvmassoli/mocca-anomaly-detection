@@ -16,8 +16,8 @@ from tensorboardX import SummaryWriter
 
 from datasets.data_manager import DataManager
 from models.mvtec_model import MVTecNet_AutoEncoder
-from trainers.train_mvtec import pretrain, train, test
-from utils import set_seeds, get_out_dir, purge_ae_params, eval_spheres_centers, load_mvtec_model_from_checkpoint
+from trainers.trainer_mvtec import pretrain, train, test
+from utils import set_seeds, get_out_dir, eval_spheres_centers, load_mvtec_model_from_checkpoint
 
 
 def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out_df: pd.DataFrame, is_texture: bool, input_shape: tuple, idx_list_enc: list, boundary: str, normal_class: str, use_selectors: bool, device: str):
@@ -156,7 +156,6 @@ def main(args):
                 f"\n\t\t\t\tTrain model      : {args.train}"
                 f"\n\t\t\t\tTest model       : {args.test}"
                 f"\n\t\t\t\tBoundary         : {args.boundary}"
-                f"\n\t\t\t\tOptimizer        : {args.optimizer}"
                 f"\n\t\t\t\tPretrain epochs  : {args.ae_epochs}"
                 f"\n\t\t\t\tAE-Learning rate : {args.ae_learning_rate}"
                 f"\n\t\t\t\tAE-milestones    : {args.ae_lr_milestones}"
@@ -198,7 +197,7 @@ def main(args):
     
     # Init DataHolder class
     data_holder = DataManager(
-                        dataset_name=args.dataset_name, 
+                        dataset_name='MVTec_Anomaly', 
                         data_path=args.data_path, 
                         normal_class=args.normal_class, 
                         only_test=args.test
@@ -206,7 +205,7 @@ def main(args):
 
     # Load data
     train_loader, test_loader = data_holder.get_loaders(
-                                                    batch_size=args.batch_szie, 
+                                                    batch_size=args.batch_size, 
                                                     shuffle_train=True, 
                                                     pin_memory=device=="cuda", 
                                                     num_workers=args.n_workers
@@ -216,7 +215,7 @@ def main(args):
     only_test = args.test and not args.train and not args.pretrain
     logger.info("Dataset info:")
     logger.info(
-            f"Dataset             : {args.dataset_name}"
+            "\n"
             f"\n\t\t\t\tNormal class  : {args.normal_class}"
             f"\n\t\t\t\tBatch size    : {args.batch_size}"    
         )
@@ -237,8 +236,8 @@ def main(args):
     ### PRETRAIN the full AutoEncoder
     ae_net_cehckpoint = None
     if args.pretrain:        
-        out_dir, tmp = get_out_dir(args, pretrain=True, aelr=None, net_name='mvtec')
-        tb_writer = SummaryWriter(os.path.join(args.output_path, args.dataset_name, str(args.normal_class), 'svdd/tb_runs_pretrain', tmp))
+        out_dir, tmp = get_out_dir(args, pretrain=True, aelr=None, dset_name='mvtec')
+        tb_writer = SummaryWriter(os.path.join(args.output_path, 'mvtec', str(args.normal_class), 'tb_runs/pretrain', tmp))
         
         # Init AutoEncoder
         ae_net = MVTecNet_AutoEncoder(input_shape=input_shape, code_length=args.code_length, use_selectors=args.use_selectors)
@@ -248,7 +247,7 @@ def main(args):
                                 ae_net=ae_net, 
                                 train_loader=train_loader, 
                                 out_dir=out_dir, 
-                                tb_writer=tb_writer
+                                tb_writer=tb_writer,
                                 device=device, 
                                 ae_learning_rate=args.ae_learning_rate,
                                 ae_weight_decay=args.ae_weight_decay, 
@@ -267,11 +266,14 @@ def main(args):
             if args.model_ckp is None:
                 logger.info("CANNOT TRAIN MODEL WITHOUT A VALID CHECKPOINT")
                 sys.exit(0)
-            ae_net_cehckpoint = args.model_ckp
-        aelr = float(ae_net_cehckpoint.split('/')[-2].split('-')[4].split('_')[-1])
-        out_dir, tmp = get_out_dir(args, pretrain=False, aelr=aelr, net_name='mvtec')
         
-        tb_writer = SummaryWriter(os.path.join(args.output_path, args.dataset_name, str(args.normal_class), 'tb_runs_train', tmp))
+            ae_net_cehckpoint = args.model_ckp
+        
+        aelr = float(ae_net_cehckpoint.split('/')[-2].split('-')[4].split('_')[-1])
+        
+        out_dir, tmp = get_out_dir(args, pretrain=False, aelr=aelr, dset_name='mvtec')
+
+        tb_writer = SummaryWriter(os.path.join(args.output_path, 'mvtec', str(args.normal_class), 'tb_runs/train', tmp))
         
         # Init the Encoder network
         encoder_net = load_mvtec_model_from_checkpoint(
@@ -284,7 +286,7 @@ def main(args):
                                             )
                             
         ## Eval/Load hyperspeheres centers
-        centers = eval_spheres_centers(train_loader=train_loader, encoder_net=encoder_net, ae_net_cehckpoint=ae_net_cehckpoint, debug=args.debug)
+        centers = eval_spheres_centers(train_loader=train_loader, encoder_net=encoder_net, ae_net_cehckpoint=ae_net_cehckpoint, device=device, debug=args.debug)
         
         # If we do not select any layer, then use only the last one
         # Remove all hyperspheres' center but the last one
@@ -294,7 +296,7 @@ def main(args):
         
         # Start training
         net_cehckpoint = train(
-                            net=net, 
+                            net=encoder_net, 
                             train_loader=train_loader, 
                             centers=centers_,
                             out_dir=out_dir, 
@@ -377,7 +379,7 @@ if __name__ == '__main__':
     ## General config
     parser.add_argument('-s', '--seed', type=int, default=-1, help='Random seed (default: -1)')
     parser.add_argument('--n_workers', type=int, default=8, help='Number of workers for data loading. 0 means that the data will be loaded in the main process. (default: 8)')
-    parser.add_argument('--output_path', default='./output/mvtec_ad')
+    parser.add_argument('--output_path', default='./output')
     parser.add_argument('-lf', '--log-frequency', type=int, default=5, help='Log frequency (default: 5)')
     parser.add_argument('-dl', '--disable-logging', action="store_true", help='Disabel logging (default: False)')
     ## Model config
@@ -390,6 +392,9 @@ if __name__ == '__main__':
     parser.add_argument('-wd', '--weight-decay', type=float, default=0.5e-6, help='Learning rate (default: 0.5e-6)')
     parser.add_argument('-aml', '--ae-lr-milestones', type=int, nargs='+', default=[], help='Pretrain milestone')
     parser.add_argument('-ml', '--lr-milestones', type=int, nargs='+', default=[], help='Training milestone')
+    ## Data
+    parser.add_argument('-dp', '--data-path', default='./MVTec_Anomaly', help='Dataset main path')
+    parser.add_argument('-nc', '--normal-class', choices=('bottle', 'capsule', 'grid', 'leather', 'metal_nut', 'screw', 'toothbrush', 'wood', 'cable', 'carpet', 'hazelnut', 'pill', 'tile', 'transistor', 'zipper'), default='cable', help='Category (default: cable)')
     ## Training config
     parser.add_argument('-we', '--warm_up_n_epochs', type=int, default=5, help='Warm up epochs (default: 5)')
     parser.add_argument('--use-selectors', action="store_true", help='Use features selector (default: False)')
@@ -397,9 +402,6 @@ if __name__ == '__main__':
     parser.add_argument('-ptr', '--pretrain', action="store_true", help='Pretrain model (default: False)')
     parser.add_argument('-tr', '--train', action="store_true", help='Train model (default: False)')
     parser.add_argument('-tt', '--test', action="store_true", help='Test model (default: False)')
-    parser.add_argument('-dn', '--dataset-name', default='MVTec_Anomaly')
-    parser.add_argument('-ul', '--unlabelled-data', action="store_true", help='Use unlabelled data (default: False)')
-    parser.add_argument('-nc', '--normal-class', choices=('bottle', 'capsule', 'grid', 'leather', 'metal_nut', 'screw', 'toothbrush', 'wood', 'cable', 'carpet', 'hazelnut', 'pill', 'tile', 'transistor', 'zipper'), default='cable', help='Category (default: cable)')
     parser.add_argument('-tbc', '--train-best-conf', action="store_true", help='Train best configurations (default: False)')
     parser.add_argument('-db', '--debug', action="store_true", help='Debug (default: False)')
     parser.add_argument('-bs', '--batch-size', type=int, default=128, help='Batch size (default: 128)')

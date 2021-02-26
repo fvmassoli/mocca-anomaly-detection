@@ -80,9 +80,10 @@ class DataManager(object):
                 rotation_range = (-45, 45) if self.normal_class in object_classes else (0, 0) 
             
             return MVTec_DataHolder(
+                                data_path=self.data_path,
                                 category=self.normal_class, 
                                 image_size=image_size, 
                                 patch_size=patch_size, 
                                 rotation_range=rotation_range, 
-                                texture=is_texture
+                                is_texture=is_texture
                             )

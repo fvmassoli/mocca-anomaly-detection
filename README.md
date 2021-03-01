@@ -17,17 +17,19 @@ We are researchers, not a software company, and have no personnel devoted to doc
 
 ## How to run the code
 
+Before to run the code, make sure that your system has the proper packages installed. You can have a look at the [requirements.txt](https://github.com/fvmassoli/mocca-anomaly-detection/blob/main/requirements.txt) file.
+
 
 Minimal usage (CIFAR10):
 
 ```
-python3 main_cifar10.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to CIFAR10 dataset>
+python main_cifar10.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to CIFAR10 dataset>
 ```
 
 Minimal usage (MVTec):
 
 ```
-python3 main_mvtec.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to CIFAR10 dataset> --use-selector
+python main_mvtec.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to CIFAR10 dataset> --use-selector
 ```
 
 

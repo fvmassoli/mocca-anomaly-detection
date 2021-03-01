@@ -8,16 +8,11 @@ It reports a new technique to detect anomalies...
 
 
 <p align="center">
-<img src="https://github.com/fvmassoli/mocca-anomaly-detection/blob/main/images/mocca.png"  alt="MOCCA" width="600" height="300">
+<img src="https://github.com/fvmassoli/mocca-anomaly-detection/blob/main/images/mocca.png"  alt="MOCCA" width="700" height="450">
 </p>
 
-
-<p align="center">
-<img src="" alt="" width="700" height="300">
-</p>
 
 ## How to run the code
-The current version of the code requires python 3.6 and pytorch ...
 
 
 Minimal usage (CIFAR10):
@@ -34,22 +29,18 @@ python3 main_mvtec.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to CIFAR
 
 
 ## Reference
-For all the details about the training procedure and the experimental results, please have a look at the [paper](https:/...).
+For all the details about the training procedure and the experimental results, please have a look at the [paper](https://arxiv.org/abs/2012.12111).
 
 To cite our work, please use the following form
 
 ```
-... scholar
+@article{massoli2020mocca,
+  title={MOCCA: Multi-Layer One-Class Classification for Anomaly Detection},
+  author={Massoli, Fabio Valerio and Falchi, Fabrizio and Kantarci, Alperen and Akti, {\c{S}}eymanur and Ekenel, Hazim Kemal and Amato, Giuseppe},
+  journal={arXiv preprint arXiv:2012.12111},
+  year={2020}
+}
 ```
-
-## Model checkpoints
-
-The checkpoints are relative to models reported in **Table 1** of the paper
-
-|   |  | | |  |
-| --- | --- | --- | --- | --- |
-| [model](https://drive.google.com...) |  |  |  |  |
-
 
 ## Contacts
 If you have any question about our work, please contact [Dr. Fabio Valerio Massoli](mailto:fabio.massoli@isti.cnr.it). 

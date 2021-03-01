@@ -217,18 +217,12 @@ def init_center_c(train_loader: DataLoader, encoder_net: torch.nn.Module, device
     encoder_net.eval().to(device)
 
     for idx, (data, _) in enumerate(tqdm(train_loader, desc='Init hyperspheres centeres', total=len(train_loader), leave=False)):
-        if debug and idx == 2: break
-    
-        # get the inputs of the batch
-        if isinstance(data, list): data = data[0]
+        if debug and idx == 10: break
     
         data = data.to(device)
         n_samples += data.shape[0]
-    
+
         zipped = encoder_net(data)
-    
-        if isinstance(zipped, torch.Tensor):
-            zipped = [('08', zipped)]
         
         if idx == 0:
             c = {item[0]: torch.zeros_like(item[1][-1], device=device) for item in zipped}

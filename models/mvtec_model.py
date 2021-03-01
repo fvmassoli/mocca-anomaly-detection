@@ -73,8 +73,8 @@ class Selector(nn.Module):
                             nn.Linear(in_features=mid_features_size, out_features=out_features, bias=True)
                         )
 
-    def forward(self, *input: torch.Tensor) -> torch.Tensor:
-        return self.fc(input)
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.fc(x)
 
 
 class MVTec_Encoder(BaseModule):
@@ -158,21 +158,29 @@ class MVTec_Encoder(BaseModule):
         
         outputs = [o1, o2, o3, o4, o5, o7, o8, z]
 
-        if self.use_selectors:
-            tuple_o = [self.selectors[idx](tt) for idx, tt in enumerate(outputs) if idx in self.idx_list_enc]
-        else:
-            tuple_o = []
-            for idx, tt in enumerate(outputs):
-                if idx not in self.idx_list_enc: continue
-                if tt.ndimension() > 2:
-                    tuple_o.append(F.avg_pool2d(tt, tt.shape[-2:]).squeeze())
-                else:
-                    tuple_o.append(tt.squeeze())
+        if len(self.idx_list_enc) != 0:
+            if self.use_selectors:
+                tuple_o = [self.selectors[idx](tt) for idx, tt in enumerate(outputs) if idx in self.idx_list_enc]
+            
+            else:
+                tuple_o = []
+            
+                for idx, tt in enumerate(outputs):
+                    if idx not in self.idx_list_enc: continue
+            
+                    if tt.ndimension() > 2:
+                        tuple_o.append(F.avg_pool2d(tt, tt.shape[-2:]).squeeze())
+            
+                    else:
+                        tuple_o.append(tt.squeeze())
 
-        names = [f'0{idx}' for idx in range(len(outputs)) if idx in self.idx_list_enc]
-        zipped = list(zip(names, tuple_o))
+            names = [f'0{idx}' for idx in self.idx_list_enc]
+            zipped = list(zip(names, tuple_o))
 
-        return zipped[i] if len(self.idx_list_enc) != 0 else z
+            return zipped 
+        
+        else: # It means that we are pretraining the full AutoEncoder
+            return z
 
 
 class MVTec_Decoder(BaseModule):

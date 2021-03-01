@@ -16,7 +16,7 @@ from tensorboardX import SummaryWriter
 from sklearn.metrics import roc_curve, roc_auc_score, auc
 
 
-def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_writer: SummaryWriter, device: str, ae_learning_rate: float, ae_weight_decay: float, ae_lr_milestones: list, ae_epochs: int, log_frequency: int, batch_accumulation: int) -> str:
+def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_writer: SummaryWriter, device: str, ae_learning_rate: float, ae_weight_decay: float, ae_lr_milestones: list, ae_epochs: int, log_frequency: int, batch_accumulation: int, debug: bool) -> str:
     """Train the full AutoEncoder network.
 
     Parameters
@@ -43,6 +43,8 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
         Number of iteration after which show logs
     batch_accumulation : int
         Number of iteration among which accumulate gradients
+    debug : bool
+        Only use the first 10 batches
 
     Returns
     -------
@@ -64,18 +66,19 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     j_ba_steps = 0
 
     for epoch in range(ae_epochs):
-
         loss_epoch = 0.0
         n_batches = 0
         optimizer.zero_grad()
-        for idx, (data, _) in enumerate(tqdm(train_loader, total=len(train_loader), leave=False)):
-            if idx == 3 : break
-            
-            if isinstance(data, list): data = data[0]
 
+        for idx, (data, _) in enumerate(tqdm(train_loader, total=len(train_loader), leave=False)):
+            if debug and idx == 10: break
+            
             data = data.to(device)
+
             x_r = ae_net(data)
+ 
             scores = torch.sum((x_r - data) ** 2, dim=tuple(range(1, x_r.dim())))
+ 
             loss = torch.mean(scores)
             loss.backward()
 
@@ -115,7 +118,7 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     return ae_net_cehckpoint
 
 
-def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir: str, tb_writer: SummaryWriter, device: str, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str, batch_accumulation: int, warm_up_n_epochs: int, log_frequency: int) -> str:
+def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir: str, tb_writer: SummaryWriter, device: str, learning_rate: float, weight_decay: float, lr_milestones: list, epochs: int, nu: float, boundary: str, batch_accumulation: int, warm_up_n_epochs: int, log_frequency: int, debug: bool) -> str:
     """Train the Encoder network on the one class task.
 
     Parameters
@@ -150,6 +153,9 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
 
     log_frequency: int
 
+    debug : bool
+        Only use the first 10 batches
+
     Returns
     -------
     net_cehckpoint : str
@@ -178,7 +184,7 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
         optimizer.zero_grad()
 
         for idx, (data, _) in enumerate(tqdm(train_loader, total=len(train_loader), leave=False)):
-            if idx == 3 : break
+            if debug and idx == 10 : break
             
             data = data.to(device)
 
@@ -236,7 +242,7 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
             logger.info('  LR scheduler: new learning rate is %g' % float(scheduler.get_lr()[0]))
 
         if (loss_epoch/len(train_loader)) <= best_loss:
-            net_cehckpoint = os.path.join(out_dir, f'best_oc_model_model.pth')
+            net_cehckpoint = os.path.join(out_dir, f'best_oc_model.pth')
             best_loss = (loss_epoch/len(train_loader))
             torch.save({
                     'net_state_dict': net.state_dict(),
@@ -252,12 +258,12 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
     return net_cehckpoint
         
 
-def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoader, R: dict, c: dict, device: str, boundary: str) -> [float, float]:
+def test(normal_class: str, is_texture: bool, net: nn.Module, test_loader: DataLoader, R: dict, c: dict, device: str, boundary: str, debug: bool) -> [float, float]:
     """Test the Encoder network.
 
     Parameters
     ----------
-    category : str
+    normal_class : str
         Name of the class under test
     is_texture : bool
         True if the input data belong to a texture-type class
@@ -273,6 +279,8 @@ def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoade
         Device
     boundary : str
         Type of boundary
+    debug : bool
+        Only use the first 10 batches
 
     Returns
     -------
@@ -292,7 +300,9 @@ def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoade
     net.eval().to(device)
     
     with torch.no_grad():
-        for idx, (data, labels) in enumerate(tqdm(test_loader, total=len(test_loader), desc=f"Testing class: {category}", leave=False)):
+        for idx, (data, labels) in enumerate(tqdm(test_loader, total=len(test_loader), desc=f"Testing class: {normal_class}", leave=False)):
+            if debug and idx == 3: break
+
             data = data.to(device)
             
             if is_texture:
@@ -307,10 +317,18 @@ def test(category: str, is_texture: bool, net: nn.Module, test_loader: DataLoade
                         for w_ in range(0, w, patch_size)
                     ]
 
-                patches = torch.stack(patches, dim=1) 
-                # patches.shape = (b_size, nb_patches, ch, h, w)
-                # batch.shape = (nb_patches, ch, h, w)
-                scores = torch.stack([get_scores(zipped=net(batch), c=c, R=R, device=device, boundary=boundary, is_texture=is_texture) for batch in patches])
+                patches = torch.stack(patches, dim=1) # shape = (b_size, nb_patches, ch, h, w)
+                
+                scores = torch.stack([
+                                get_scores(
+                                        zipped=net(batch), 
+                                        c=c, R=R, 
+                                        device=device, 
+                                        boundary=boundary, 
+                                        is_texture=is_texture) 
+                                    for batch in patches
+                                ]) # batch.shape = (nb_patches, ch, h, w)
+            
             else:
                 scores = get_scores(zipped=net(data), c=c, R=R, device=device, boundary=boundary, is_texture=is_texture)
 
@@ -364,10 +382,7 @@ def eval_ad_loss(zipped: dict, c: dict, R: dict, nu: float, boundary: str) -> [d
 
     loss = 1
     
-    if isinstance(zipped, torch.Tensor):
-        zipped = {'08': zipped}
-    
-    for k, v in zipped.items():
+    for (k, v) in zipped:
         dist[k] = torch.sum((v - c[k].unsqueeze(0)) ** 2, dim=1)
     
         if boundary == 'soft':
@@ -380,7 +395,7 @@ def eval_ad_loss(zipped: dict, c: dict, R: dict, nu: float, boundary: str) -> [d
     return dist, loss
 
 
-def get_scores(zipped: dict, c: dict, R: dict, device: str, boundary: str, is_textures: bool) -> float:
+def get_scores(zipped: dict, c: dict, R: dict, device: str, boundary: str, is_texture: bool) -> float:
     """Evaluate anomaly score. 
     
     Parameters
@@ -395,7 +410,7 @@ def get_scores(zipped: dict, c: dict, R: dict, device: str, boundary: str, is_te
         Device on which run the computation
     boundary: str
         Type of boundary
-    is_textures : bool
+    is_texture : bool
         True if images belong to texture-type classes
 
     Returns
@@ -404,10 +419,7 @@ def get_scores(zipped: dict, c: dict, R: dict, device: str, boundary: str, is_te
         Anomlay score for each image
 
     """
-    # If we are only considering the last layer, then put the tensor into a dictionary
-    zipped = [('06', zipped)] if isinstance(zipped, torch.Tensor) else zipped
-    
-    dist = {item[0]: torch.norm(item[1] - c[item[0]].unsqueeze(0), p=metric, dim=1) for item in zipped}
+    dist = {item[0]: torch.norm(item[1] - c[item[0]].unsqueeze(0), dim=1) for item in zipped}
     
     shape = dist[list(dist.keys())[0]].shape[0]
     scores = torch.zeros((shape,), device=device)
@@ -420,4 +432,4 @@ def get_scores(zipped: dict, c: dict, R: dict, device: str, boundary: str, is_te
         else:
             scores += dist[k]
     
-    return scores.max()/len(list(dist.keys())) if is_textures else scores/len(list(dist.keys()))
+    return scores.max()/len(list(dist.keys())) if is_texture else scores/len(list(dist.keys()))

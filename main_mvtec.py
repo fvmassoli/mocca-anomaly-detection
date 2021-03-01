@@ -7,6 +7,8 @@ import argparse
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+from os import makedirs
+from os.path import exists
 from prettytable import PrettyTable
 
 import torch
@@ -20,7 +22,7 @@ from trainers.trainer_mvtec import pretrain, train, test
 from utils import set_seeds, get_out_dir, eval_spheres_centers, load_mvtec_model_from_checkpoint
 
 
-def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out_df: pd.DataFrame, is_texture: bool, input_shape: tuple, idx_list_enc: list, boundary: str, normal_class: str, use_selectors: bool, device: str):
+def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out_df: pd.DataFrame, is_texture: bool, input_shape: tuple, idx_list_enc: list, boundary: str, normal_class: str, use_selectors: bool, device: str, debug: bool):
     """Test a single model.
     
     Parameters
@@ -47,6 +49,8 @@ def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out
         True if we want to use Selector modules
     device : str
         Device to be used
+    debug : bool
+        Activate debug mode
     
     Returns
     -------
@@ -92,14 +96,15 @@ def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out
     
     ### TEST
     test_auc, test_b_acc = test(
-                                normal_class=normal_class, 
+                                normal_class=normal_class,  
                                 is_texture=is_texture, 
                                 net=net, 
                                 test_loader=test_loader, 
                                 R=st_dict['R'], 
                                 c=st_dict['c'], 
                                 device=device,
-                                boundary=boundary
+                                boundary=boundary,
+                                debug=debug
                             )
 
     table = tables[0] if boundary == 'soft' else tables[1]
@@ -150,6 +155,9 @@ def main(args):
     logger = logging.getLogger()
     
     if args.train or args.pretrain:
+        # If the list of layers from which extract the features is empty, then use the last one (after the sigmoid)
+        if len(args.idx_list_enc) == 0: args.idx_list_enc = [7]
+
         logger.info(
                 "Start run with params:"
                 f"\n\t\t\t\tPretrain model   : {args.pretrain}"
@@ -254,7 +262,8 @@ def main(args):
                                 ae_lr_milestones=args.ae_lr_milestones,
                                 ae_epochs=args.ae_epochs, 
                                 log_frequency=args.log_frequency, 
-                                batch_accumulation=args.batch_accumulation
+                                batch_accumulation=args.batch_accumulation,
+                                debug=args.debug
                             )
         
         tb_writer.close()
@@ -288,17 +297,11 @@ def main(args):
         ## Eval/Load hyperspeheres centers
         centers = eval_spheres_centers(train_loader=train_loader, encoder_net=encoder_net, ae_net_cehckpoint=ae_net_cehckpoint, device=device, debug=args.debug)
         
-        # If we do not select any layer, then use only the last one
-        # Remove all hyperspheres' center but the last one
-        if len(args.idx_list_enc) == 0: args.idx_list_enc = [-1]
-        keys = np.asarray(list(centers.keys()))[args.idx_list_enc]
-        centers_ = {k: v for k, v in centers.items() if k in keys}
-        
         # Start training
         net_cehckpoint = train(
                             net=encoder_net, 
                             train_loader=train_loader, 
-                            centers=centers_,
+                            centers=centers,
                             out_dir=out_dir, 
                             tb_writer=tb_writer, 
                             device=device, 
@@ -310,7 +313,8 @@ def main(args):
                             boundary=args.boundary,
                             batch_accumulation=args.batch_accumulation,
                             warm_up_n_epochs=args.warm_up_n_epochs, 
-                            log_frequency=args.log_frequency
+                            log_frequency=args.log_frequency,
+                            debug=args.debug
                         )
         
         tb_writer.close()
@@ -321,6 +325,8 @@ def main(args):
             net_cehckpoint = args.model_ckp
 
         # Init table to print resutls on shell
+        # If we only test one model at a time, on the two tables will be empty
+        # If all the model checkpoints are in one folder then the two tables will be automatically filled
         table_s = PrettyTable()
         table_s.field_names = ['Path', 'Code length', 'Enc layer list', 'weight decay', 'Object class', 'Boundary', 'batch size', 'nu', 'AUC', 'Balanced acc']
         table_s.float_format = '0.3'
@@ -344,7 +350,8 @@ def main(args):
                             boundary=args.boundary, 
                             normal_class=args.normal_class, 
                             use_selectors=args.use_selectors, 
-                            device=device
+                            device=device,
+                            debug=args.debug
                         )
         else:
             for model_ckp in tqdm(os.listdir(net_cehckpoint), total=len(os.listdir(net_cehckpoint)), desc="Running on models"):
@@ -358,22 +365,28 @@ def main(args):
                                 boundary=args.boundary, 
                                 normal_class=args.normal_class, 
                                 use_selectors=args.use_selectors, 
-                                device=device
+                                device=device,
+                                debug=args.debug
                             )
 
         print(table_s)
         print(table_h)
 
-        normal_class = net_cehckpoint.split('/')[-3]
-        b_path = "./mvtec_test_results/test_csv"
+        b_path = "./output/mvtec_test_results/test_csv"
+        if not exists(b_path):
+            makedirs(b_path)
+
+        normal_class = net_cehckpoint.split('/')[-4]        
         ff = glob.glob(os.path.join(b_path, f'*{normal_class}*'))
         if len(ff) == 0:
             csv_out_name = os.path.join(b_path, f"test-results-{normal_class}_0.csv")
+        
         else:
             ff.sort()
             version = int(ff[-1].split('_')[-1].split('.')[0]) + 1
             logger.info(f"Already found csv file for {normal_class} with latest version: {version-1} ==> creaing new csv file with version: {version}")
             csv_out_name = os.path.join(b_path, f"test-results-{normal_class}_{version}.csv")
+        
         out_df.to_csv(csv_out_name)
 
 
@@ -385,6 +398,7 @@ if __name__ == '__main__':
     parser.add_argument('--output_path', default='./output')
     parser.add_argument('-lf', '--log-frequency', type=int, default=5, help='Log frequency (default: 5)')
     parser.add_argument('-dl', '--disable-logging', action="store_true", help='Disabel logging (default: False)')
+    parser.add_argument('-db', '--debug', action="store_true", help='Activate debug mode, i.e., only use the first three batches (default: False)')
     ## Model config
     parser.add_argument('-zl', '--code-length', default=64, type=int, help='Code length (default: 64)')
     parser.add_argument('-ck', '--model-ckp', help='Model checkpoint')
@@ -406,7 +420,6 @@ if __name__ == '__main__':
     parser.add_argument('-tr', '--train', action="store_true", help='Train model (default: False)')
     parser.add_argument('-tt', '--test', action="store_true", help='Test model (default: False)')
     parser.add_argument('-tbc', '--train-best-conf', action="store_true", help='Train best configurations (default: False)')
-    parser.add_argument('-db', '--debug', action="store_true", help='Debug (default: False)')
     parser.add_argument('-bs', '--batch-size', type=int, default=128, help='Batch size (default: 128)')
     parser.add_argument('-bd', '--boundary', choices=("hard", "soft"), default="soft", help='Boundary (default: soft)')
     parser.add_argument('-ile', '--idx-list-enc', type=int, nargs='+', default=[], help='List of indices of model encoder')

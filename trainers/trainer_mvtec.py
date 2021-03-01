@@ -71,7 +71,7 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
         optimizer.zero_grad()
 
         for idx, (data, _) in enumerate(tqdm(train_loader, total=len(train_loader), leave=False)):
-            if debug and idx == 10: break
+            if debug and idx == 5: break
             
             data = data.to(device)
 
@@ -184,7 +184,7 @@ def train(net: torch.nn.Module, train_loader: DataLoader, centers: dict, out_dir
         optimizer.zero_grad()
 
         for idx, (data, _) in enumerate(tqdm(train_loader, total=len(train_loader), leave=False)):
-            if debug and idx == 10 : break
+            if debug and idx == 5: break
             
             data = data.to(device)
 
@@ -301,7 +301,7 @@ def test(normal_class: str, is_texture: bool, net: nn.Module, test_loader: DataL
     
     with torch.no_grad():
         for idx, (data, labels) in enumerate(tqdm(test_loader, total=len(test_loader), desc=f"Testing class: {normal_class}", leave=False)):
-            if debug and idx == 3: break
+            if debug and idx == 5: break
 
             data = data.to(device)
             
@@ -381,7 +381,7 @@ def eval_ad_loss(zipped: dict, c: dict, R: dict, nu: float, boundary: str) -> [d
     dist = {}
 
     loss = 1
-    
+
     for (k, v) in zipped:
         dist[k] = torch.sum((v - c[k].unsqueeze(0)) ** 2, dim=1)
     

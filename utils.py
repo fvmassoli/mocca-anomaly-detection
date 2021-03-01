@@ -147,7 +147,7 @@ def load_mvtec_model_from_checkpoint(input_shape: tuple, code_length: int, idx_l
     return encoder_net
 
 
-def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module, ae_net_cehckpoint: str, device:str, debug: bool) -> dict:
+def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module, ae_net_cehckpoint: str, use_selectors: bool, device:str, debug: bool) -> dict:
     """Eval the centers of the hyperspheres at each chosen layer.
 
     Parameters
@@ -158,6 +158,10 @@ def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module,
         Encoder network 
     ae_net_cehckpoint : str
         Checkpoint of the full AutoEncoder 
+    use_selectors : bool
+        True if we want to use selector models
+    device : str
+        Device on which run the computations
     debug : bool
         Activate debug mode
     
@@ -169,11 +173,13 @@ def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module,
     """
     logger = logging.getLogger()
     
+    centers_files = ae_net_cehckpoint[:-4]+f'_w_centers_{use_selectors}.pth'
+
     # If centers are found, then load and return
-    if os.path.exists(ae_net_cehckpoint[:-4]+'_w_centers.pth'):
+    if os.path.exists(centers_files):
     
         logger.info("Found hyperspheres centers")
-        ae_net_ckp = torch.load(ae_net_cehckpoint[:-4]+'_w_centers.pth', map_location=lambda storage, loc: storage)
+        ae_net_ckp = torch.load(centers_files, map_location=lambda storage, loc: storage)
 
         centers = {k: v.to(device) for k, v in ae_net_ckp['centers'].items()}
     else:
@@ -182,7 +188,7 @@ def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module,
         centers_ = init_center_c(train_loader=train_loader, encoder_net=encoder_net, device=device, debug=debug)
         
         logger.info("Hyperspheres centers evaluated!!!")
-        new_ckp = ae_net_cehckpoint.split('.pth')[0]+'_w_centers.pth'
+        new_ckp = ae_net_cehckpoint.split('.pth')[0]+f'_w_centers_{use_selectors}.pth'
         
         logger.info(f"New AE dict saved at: {new_ckp}!!!")
         centers = {k: v for k, v in centers_.items()}
@@ -217,7 +223,7 @@ def init_center_c(train_loader: DataLoader, encoder_net: torch.nn.Module, device
     encoder_net.eval().to(device)
 
     for idx, (data, _) in enumerate(tqdm(train_loader, desc='Init hyperspheres centeres', total=len(train_loader), leave=False)):
-        if debug and idx == 10: break
+        if debug and idx == 5: break
     
         data = data.to(device)
         n_samples += data.shape[0]

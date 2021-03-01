@@ -140,6 +140,20 @@ class MVTec_Encoder(BaseModule):
         """
         return self.last_depth, self.deepest_shape
 
+    def set_idx_list_enc(self, idx_list_enc: list) -> None:
+        """Set the list of layers from wchich extract the features.
+        It is used to initialize the hyperspheres centers so that
+        independently from which layers we are considering, the first
+        time that we create the centroids, we do it for all the layers.
+
+        Parameters
+        ----------
+        idx_list_enc : list
+            List of layers indices
+
+        """
+        self.idx_list_enc = idx_list_enc
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         o1 = self.conv(x)
         o2 = self.res(self.activation_fn(o1))
@@ -159,10 +173,13 @@ class MVTec_Encoder(BaseModule):
         outputs = [o1, o2, o3, o4, o5, o7, o8, z]
 
         if len(self.idx_list_enc) != 0:
+            # If we are pretraining the full AutoEncoder we don't need any of this and we set self.idx_list_enc = [] 
+
             if self.use_selectors:
                 tuple_o = [self.selectors[idx](tt) for idx, tt in enumerate(outputs) if idx in self.idx_list_enc]
             
             else:
+                # If we don't use selector, apply simple transformations to reduce the size of the feature maps
                 tuple_o = []
             
                 for idx, tt in enumerate(outputs):
@@ -174,10 +191,7 @@ class MVTec_Encoder(BaseModule):
                     else:
                         tuple_o.append(tt.squeeze())
 
-            names = [f'0{idx}' for idx in self.idx_list_enc]
-            zipped = list(zip(names, tuple_o))
-
-            return zipped 
+            return list(zip([f'0{idx}' for idx in self.idx_list_enc], tuple_o)) 
         
         else: # It means that we are pretraining the full AutoEncoder
             return z

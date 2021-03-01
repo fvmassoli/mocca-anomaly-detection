@@ -140,6 +140,12 @@ def test_models(test_loader: DataLoader, net_cehckpoint: str, tables: tuple, out
 
 
 def main(args):
+    # Set seed
+    set_seeds(args.seed)
+
+    # Get the device
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    
     if args.disable_logging:
         logging.disable(level=logging.INFO)
 
@@ -151,7 +157,6 @@ def main(args):
             logging.FileHandler('./training.log'),
             logging.StreamHandler()
         ])
-
     logger = logging.getLogger()
     
     if args.train or args.pretrain:
@@ -196,12 +201,6 @@ def main(args):
         
             else:
                 args.normal_class = args.model_ckp.split('/')[-3]
-
-    # Set seed
-    set_seeds(args.seed)
-
-    # Get the device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
     
     # Init DataHolder class
     data_holder = DataManager(
@@ -243,9 +242,10 @@ def main(args):
         
     ### PRETRAIN the full AutoEncoder
     ae_net_cehckpoint = None
-    if args.pretrain:        
-        out_dir, tmp = get_out_dir(args, pretrain=True, aelr=None, dset_name='mvtec')
-        tb_writer = SummaryWriter(os.path.join(args.output_path, 'mvtec', str(args.normal_class), 'tb_runs/pretrain', tmp))
+    if args.pretrain:   
+        
+        pretrain_out_dir, tmp = get_out_dir(args, pretrain=True, aelr=None, dset_name='mvtec')
+        pretrain_tb_writer = SummaryWriter(os.path.join(args.output_path, 'mvtec', str(args.normal_class), 'tb_runs/pretrain', tmp))
         
         # Init AutoEncoder
         ae_net = MVTecNet_AutoEncoder(input_shape=input_shape, code_length=args.code_length, use_selectors=args.use_selectors)
@@ -254,8 +254,8 @@ def main(args):
         ae_net_cehckpoint = pretrain(
                                 ae_net=ae_net, 
                                 train_loader=train_loader, 
-                                out_dir=out_dir, 
-                                tb_writer=tb_writer,
+                                out_dir=pretrain_out_dir, 
+                                tb_writer=pretrain_tb_writer,
                                 device=device, 
                                 ae_learning_rate=args.ae_learning_rate,
                                 ae_weight_decay=args.ae_weight_decay, 
@@ -266,7 +266,7 @@ def main(args):
                                 debug=args.debug
                             )
         
-        tb_writer.close()
+        pretrain_tb_writer.close()
 
     ### TRAIN the Encoder
     net_cehckpoint = None
@@ -280,9 +280,8 @@ def main(args):
         
         aelr = float(ae_net_cehckpoint.split('/')[-2].split('-')[4].split('_')[-1])
         
-        out_dir, tmp = get_out_dir(args, pretrain=False, aelr=aelr, dset_name='mvtec')
-
-        tb_writer = SummaryWriter(os.path.join(args.output_path, 'mvtec', str(args.normal_class), 'tb_runs/train', tmp))
+        train_out_dir, tmp = get_out_dir(args, pretrain=False, aelr=aelr, dset_name='mvtec')
+        train_tb_writer = SummaryWriter(os.path.join(args.output_path, 'mvtec', str(args.normal_class), 'tb_runs/train', tmp))
         
         # Init the Encoder network
         encoder_net = load_mvtec_model_from_checkpoint(
@@ -295,15 +294,17 @@ def main(args):
                                             )
                             
         ## Eval/Load hyperspeheres centers
-        centers = eval_spheres_centers(train_loader=train_loader, encoder_net=encoder_net, ae_net_cehckpoint=ae_net_cehckpoint, device=device, debug=args.debug)
-        
+        encoder_net.set_idx_list_enc(range(8))
+        centers = eval_spheres_centers(train_loader=train_loader, encoder_net=encoder_net, ae_net_cehckpoint=ae_net_cehckpoint, use_selectors=args.use_selectors, device=device, debug=args.debug)
+        encoder_net.set_idx_list_enc(args.idx_list_enc)
+
         # Start training
         net_cehckpoint = train(
                             net=encoder_net, 
                             train_loader=train_loader, 
                             centers=centers,
-                            out_dir=out_dir, 
-                            tb_writer=tb_writer, 
+                            out_dir=train_out_dir, 
+                            tb_writer=train_tb_writer, 
                             device=device, 
                             learning_rate=args.learning_rate, 
                             weight_decay=args.weight_decay, 
@@ -317,7 +318,7 @@ def main(args):
                             debug=args.debug
                         )
         
-        tb_writer.close()
+        train_tb_writer.close()
 
     ### TEST the Encoder
     if args.test:

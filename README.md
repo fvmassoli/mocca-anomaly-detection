@@ -8,7 +8,7 @@ It reports a new technique to detect anomalies...
 
 
 <p align="center">
-<img src=""  alt="" width="600" height="300">
+<img src="https://github.com/fvmassoli/mocca-anomaly-detection/blob/main/images/mocca.png"  alt="MOCCA" width="600" height="300">
 </p>
 
 

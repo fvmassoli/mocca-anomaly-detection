@@ -1,5 +1,5 @@
 from .shanghaitech_base_model import BaseModule, DownsampleBlock, UpsampleBlock, TemporallySharedFullyConnection, MaskedConv3d
-
+from torch import nn
 class Selector(BaseModule):
     def __init__(self, code_length, idx):
         super(Selector, self).__init__()

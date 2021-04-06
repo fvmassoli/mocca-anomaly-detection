@@ -39,16 +39,30 @@ def get_out_dir(args, pretrain: bool, aelr: float, dset_name: str="cifar10", tra
         String containing infos about the current experiment setup
 
     """
-    if pretrain:   
-        tmp = (f"pretrain-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-lr_{args.ae_learning_rate}-awd_{args.ae_weight_decay}")
-        out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), 'pretrain', tmp)
-    
+    if dset_name == "ShanghaiTech":
+        if pretrain:
+            tmp = (f"pretrain-mn_{dset_name}-cl_{args.code_length}-lr_{args.ae_learning_rate}")
+            out_dir = os.path.join(args.output_path, dset_name, 'pretrain', tmp)
+        else:
+            tmp = (
+                f"train-mn_{dset_name}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
+                f"bd_{args.boundary}-sl_{args.use_selectors}-ile_{'.'.join(map(str, args.idx_list_enc))}-lstm_{args.load_lstm}-"
+                f"bidir_{args.bidirectional}-hs_{args.hidden_size}-nl_{args.num_layers}-dp_{args.dropout}"
+            )
+            out_dir = os.path.join(args.output_path, dset_name, 'train', tmp)
+            if args.end_to_end_training:
+                out_dir = os.path.join(args.output_path, dset_name, 'train_end_to_end', tmp)
     else:
-        tmp = (
-            f"train-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
-            f"wd_{args.weight_decay}-bd_{args.boundary}-alr_{aelr}-sl_{args.use_selectors}-ep_{args.epochs}-ile_{'.'.join(map(str, args.idx_list_enc))}"
-        )
-        out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), 'train', tmp)
+        if pretrain:   
+            tmp = (f"pretrain-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-lr_{args.ae_learning_rate}-awd_{args.ae_weight_decay}")
+            out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), 'pretrain', tmp)
+        
+        else:
+            tmp = (
+                f"train-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
+                f"wd_{args.weight_decay}-bd_{args.boundary}-alr_{aelr}-sl_{args.use_selectors}-ep_{args.epochs}-ile_{'.'.join(map(str, args.idx_list_enc))}"
+            )
+            out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), 'train', tmp)
     
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)

@@ -24,7 +24,7 @@ def pretrain(ae_net: nn.Module, train_loader: DataLoader, out_dir: str, tb_write
     ae_net : nn.Module
         AutoEncoder network
     train_loader : DataLoader
-        Data laoder
+        Data loader
     out_dir : str
         Path to checkpoint dir
     tb_writer : SummaryWriter

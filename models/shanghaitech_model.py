@@ -1,5 +1,8 @@
 from .shanghaitech_base_model import BaseModule, DownsampleBlock, UpsampleBlock, TemporallySharedFullyConnection, MaskedConv3d
-from torch import nn
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+
 class Selector(BaseModule):
     def __init__(self, code_length, idx):
         super(Selector, self).__init__()
@@ -168,7 +171,6 @@ class ShanghaiTechEncoder(BaseModule):
 
             d_lstms = dict(zip([f"conv_lstm_o_{i}" for i in range(len(conv_lstms))], conv_lstms))
             d_lstms.update(dict(zip([f"tdl_lstm_o_{i}" for i in range(len(tdl_lstms))], tdl_lstms)))
-            
             return o_tdl_2_s, d_lstms
         
         else:

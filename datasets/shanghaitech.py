@@ -25,8 +25,8 @@ class ShanghaiTech_DataHolder(object):
         root folder of ShanghaiTech dataset
     clip_length : int
         number of frames that form a clip
-    stide : int
-        for creating a clip what should be size of sliding window
+    stride : int
+        for creating a clip what should be the size of sliding window
     """
     def __init__(self, root: str, clip_length=16, stride=1):
         self.root = root

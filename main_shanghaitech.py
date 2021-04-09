@@ -22,9 +22,6 @@ from trainers.trainer_shanghaitech import pretrain, train
 from utils import set_seeds, get_out_dir, eval_spheres_centers, load_mvtec_model_from_checkpoint, extract_arguments_from_checkpoint
 
 
-
-
-
 def main(args):
     # Set seed
     set_seeds(args.seed)
@@ -49,7 +46,7 @@ def main(args):
 
     if args.train or args.pretrain or args.end_to_end_training:
         # If the list of layers from which extract the features is empty, then use the last one (after the sigmoid)
-        if len(args.idx_list_enc) == 0: args.idx_list_enc = [7]
+        if len(args.idx_list_enc) == 0: args.idx_list_enc = [6]
 
         logger.info(
                 "Start run with params:\n"
@@ -226,6 +223,9 @@ def main(args):
                 f"\n\t\t\t\tBidirectional  : {bidirectional}"
                 f"\n\t\t\t\tDropout prob   : {dropout}"
             )
+
+        # Initialize test helper for processing each video seperately
+        # It prints the result to the loaded checkpoint directory
         helper = VideoAnomalyDetectionResultHelper(
                                                 dataset=dataset,
                                                 model=net,
@@ -235,7 +235,7 @@ def main(args):
                                                 device=device,
                                                 end_to_end_training= True if train_type == "train_end_to_end" else False,
                                                 debug=args.debug,
-                                                output_file=os.path.join(args.output_path,"shanghaitech_test_results.txt")
+                                                output_file=os.path.join("".join(net_checkpoint.split(os.sep)[:-1]),"shanghaitech_test_results.txt")
                                             )
         ### TEST
         helper.test_video_anomaly_detection()

@@ -16,10 +16,10 @@ from tensorboardX import SummaryWriter
 from models.shanghaitech_model import ShanghaiTech, ShanghaiTechEncoder, ShanghaiTechDecoder
 
 from datasets.data_manager import DataManager
-
+from datasets.shanghaitech_test import VideoAnomalyDetectionResultHelper
 
 from trainers.trainer_shanghaitech import pretrain, train
-from utils import set_seeds, get_out_dir, eval_spheres_centers, load_mvtec_model_from_checkpoint
+from utils import set_seeds, get_out_dir, eval_spheres_centers, load_mvtec_model_from_checkpoint, extract_arguments_from_checkpoint
 
 
 
@@ -114,7 +114,7 @@ def main(args):
     if not only_test:
         logger.info(
                 f"TRAIN:"
-                f"\n\t\t\t\tNumber of images  : {len(train_loader.dataset)}"
+                f"\n\t\t\t\tNumber of clips  : {len(train_loader.dataset)}"
                 f"\n\t\t\t\tNumber of batches : {len(train_loader.dataset)//args.batch_size}"
             )
 
@@ -146,20 +146,23 @@ def main(args):
         aelr = float(ae_net_cehckpoint.split('/')[-2].split('-')[4].split('_')[-1])
         
         out_dir, tmp = get_out_dir(args, pretrain=False, aelr=aelr, dset_name='ShanghaiTech')
-    
         tb_writer = SummaryWriter(os.path.join(args.output_path, "ShanghaiTech", 'tb_runs_train', tmp))
+
         # Init Encoder
-        net = ShanghaiTechEncoder(data_holder.shape, args.code_length, args.load_lstm, args.hidden_size, args.num_layers, args.dropout, args.bidirectional, args.use_selectors) if args.dataset_name == 'shanghai' else None
+        net = ShanghaiTechEncoder(data_holder.shape, args.code_length, args.load_lstm, args.hidden_size, args.num_layers, args.dropout, args.bidirectional, args.use_selectors)
+
         # Load encoder weight from autoencoder
         net_dict = net.state_dict()
         logger.info(f"Loading encoder from: {ae_net_checkpoint}")
         ae_net_dict = torch.load(ae_net_checkpoint, map_location=lambda storage, loc: storage)['ae_state_dict']
+
         # Filter out decoder network keys
         st_dict = {k: v for k, v in ae_net_dict.items() if k in net_dict}
         # Overwrite values in the existing state_dict
         net_dict.update(st_dict)
         # Load the new state_dict
         net.load_state_dict(net_dict)
+
         ### TRAIN
         net_checkpoint = train(net, train_loader, out_dir, tb_writer, device, ae_net_checkpoint, args)
         tb_writer.close()
@@ -191,28 +194,21 @@ def main(args):
     if args.test:   
         if net_checkpoint is None:
             net_checkpoint = args.model_ckp
-        code_length = int(net_checkpoint.split('/')[-2].split('-')[2].split('_')[-1])
-        batch_size = int(net_checkpoint.split('/')[-2].split('-')[3].split('_')[-1])
-        boundary = net_checkpoint.split('/')[-2].split('-')[6].split('_')[-1]
-        use_selectors = net_checkpoint.split('/')[-2].split('-')[7].split('_')[-1] == "True"
-        idx_list_enc = [int(i) for i in net_checkpoint.split('/')[-2].split('-')[8].split('_')[-1].split('.')]
-        load_lstm = net_checkpoint.split('/')[-2].split('-')[9].split('_')[-1] == "True"
-        hidden_size = int(net_checkpoint.split('/')[-2].split('-')[11].split('_')[-1])
-        num_layers = int(net_checkpoint.split('/')[-2].split('-')[12].split('_')[-1])
-        dropout = float(net_checkpoint.split('/')[-2].split('-')[13].split('_')[-1])
-        bidirectional = net_checkpoint.split('/')[-2].split('-')[10].split('_')[-1] == "True"
-        dataset_name = net_checkpoint.split('/')[1]
+        
+        code_length, batch_size, boundary, use_selectors, idx_list_enc, \
+        load_lstm, hidden_size, num_layers, dropout, bidirectional, \
+        dataset_name, train_type = extract_arguments_from_checkpoint(net_checkpoint)
+
         # Init dataset
-        dataset = SHANGHAITECHTEST(path=data_path)
-        if args.end_to_end_training:
+        dataset = data_holder.get_test_data()
+        if train_type == "train_end_to_end":
             # Init Autoencoder
-            net = ShanghaiTech(data_holder.shape, args.code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors) if args.dataset_name == 'shanghai' else None
+            net = ShanghaiTech(data_holder.shape, args.code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors) 
         else:
             # Init Encoder ONLY
-            print(dataset_name)
-            net = ShanghaiTechEncoder(dataset.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors) if dataset_name == 'shanghai' else None
+            net = ShanghaiTechEncoder(dataset.shape, code_length, load_lstm, hidden_size, num_layers, dropout, bidirectional, use_selectors) 
         st_dict = torch.load(net_checkpoint)
-        print(net)
+
         net.load_state_dict(st_dict['net_state_dict'])
         logger.info(f"Loaded model from: {net_checkpoint}")
         logger.info(
@@ -223,7 +219,7 @@ def main(args):
                 f"\n\t\t\t\tBoundary       : {boundary}"
                 f"\n\t\t\t\tUse Selectors  : {use_selectors}"
                 f"\n\t\t\t\tBatch size     : {batch_size}"
-                f"\n\t\t\t\tN jobs         : {args.n_jobs_dataloader}"
+                f"\n\t\t\t\tN workers      : {args.n_workers}"
                 f"\n\t\t\t\tLoad LSTMs     : {load_lstm}"
                 f"\n\t\t\t\tHidden size    : {hidden_size}"
                 f"\n\t\t\t\tNum layers     : {num_layers}"
@@ -237,9 +233,9 @@ def main(args):
                                                 R=st_dict['R'], 
                                                 boundary=boundary,
                                                 device=device,
-                                                end_to_end_training=args.end_to_end_training,
+                                                end_to_end_training= True if train_type == "train_end_to_end" else False,
                                                 debug=args.debug,
-                                                output_file='output/shanghai_tech/shanghaitech_test_results.txt'
+                                                output_file=os.path.join(args.output_path,"shanghaitech_test_results.txt")
                                             )
         ### TEST
         helper.test_video_anomaly_detection()

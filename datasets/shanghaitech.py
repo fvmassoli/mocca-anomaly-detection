@@ -13,7 +13,7 @@ from torchvision import transforms
 from skimage.transform import resize
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataloader import default_collate
-from .shanghaitech_test import SHANGHAITECHTEST
+from .shanghaitech_test import ShanghaiTechTestHandler
 
 class ShanghaiTech_DataHolder(object):
     """
@@ -47,7 +47,7 @@ class ShanghaiTech_DataHolder(object):
             Custom dataset to handle ShanghaiTech data
 
         """
-        return SHANGHAITECHTEST
+        return ShanghaiTechTestHandler(self.root)
 
     def get_train_data(self, return_dataset: bool=True):
         """Load train dataset

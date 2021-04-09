@@ -160,6 +160,20 @@ def load_mvtec_model_from_checkpoint(input_shape: tuple, code_length: int, idx_l
     
     return encoder_net
 
+def extract_arguments_from_checkpoint(net_checkpoint: str):
+    code_length = int(net_checkpoint.split('/')[-2].split('-')[2].split('_')[-1])
+    batch_size = int(net_checkpoint.split('/')[-2].split('-')[3].split('_')[-1])
+    boundary = net_checkpoint.split('/')[-2].split('-')[6].split('_')[-1]
+    use_selectors = net_checkpoint.split('/')[-2].split('-')[7].split('_')[-1] == "True"
+    idx_list_enc = [int(i) for i in net_checkpoint.split('/')[-2].split('-')[8].split('_')[-1].split('.')]
+    load_lstm = net_checkpoint.split('/')[-2].split('-')[9].split('_')[-1] == "True"
+    hidden_size = int(net_checkpoint.split('/')[-2].split('-')[11].split('_')[-1])
+    num_layers = int(net_checkpoint.split('/')[-2].split('-')[12].split('_')[-1])
+    dropout = float(net_checkpoint.split('/')[-2].split('-')[13].split('_')[-1])
+    bidirectional = net_checkpoint.split('/')[-2].split('-')[10].split('_')[-1] == "True"
+    dataset_name = net_checkpoint.split('/')[-4]
+    train_type = net_checkpoint.split('/')[-3]
+    return code_length, batch_size, boundary, use_selectors, idx_list_enc, load_lstm, hidden_size, num_layers, dropout, bidirectional, dataset_name, train_type
 
 def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module, ae_net_cehckpoint: str, use_selectors: bool, device:str, debug: bool) -> dict:
     """Eval the centers of the hyperspheres at each chosen layer.

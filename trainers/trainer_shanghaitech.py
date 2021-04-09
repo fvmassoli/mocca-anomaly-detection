@@ -99,7 +99,7 @@ def train(net, train_loader, out_dir, tb_writer, device, ae_net_checkpoint, args
     net.train()
     it_t = 0
 
-    best_loss = 1.e7
+    best_loss = 1e12
     epochs = 1 if args.debug else args.epochs
     for epoch in range(epochs):
         one_class_loss = 0.0
@@ -127,7 +127,6 @@ def train(net, train_loader, out_dir, tb_writer, device, ae_net_checkpoint, args
                 recon_loss_ = torch.tensor([0.0], device=device)
 
             dist, one_class_loss_ = eval_ad_loss(d_lstms, c, R, args.nu, args.boundary)
-            print(type(one_class_loss_))
             objective_loss_ = one_class_loss_ + recon_loss_
 
             for k in keys:
@@ -181,7 +180,7 @@ def train(net, train_loader, out_dir, tb_writer, device, ae_net_checkpoint, args
             net_checkpoint
         )
         logger.info(f'Saved model at: {net_checkpoint}')
-        if objective_loss < best_loss:
+        if objective_loss < best_loss or epoch==0:
             best_loss = objective_loss
             best_model_checkpoint = os.path.join(out_dir, f'net_ckp_best_model_{time_}.pth')
             torch.save({

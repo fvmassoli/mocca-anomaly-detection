@@ -30,9 +30,14 @@ python main_cifar10.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to CIFA
 Minimal usage (MVTec):
 
 ```
-python main_mvtec.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to CIFAR10 dataset> --use-selector
+python main_mvtec.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to MVTec dataset> --use-selector
 ```
 
+Minimal usage (ShanghaiTech):
+
+```
+python main_shanghaitech.py -dp <path to ShanghaiTech dataset> -ee --tt -zl 1024 -ll -use 
+```
 
 ## Reference
 For all the details about the training procedure and the experimental results, please have a look at the [paper](https://arxiv.org/abs/2012.12111).

@@ -36,7 +36,7 @@ python main_mvtec.py -ptr -tr -tt -zl 128 -nc <normal class> -dp <path to MVTec 
 Minimal usage (ShanghaiTech):
 
 ```
-python main_shanghaitech.py -dp <path to ShanghaiTech dataset> -ee --tt -zl 1024 -ll -use 
+python main_shanghaitech.py -dp <path to ShanghaiTech dataset> -ee -tt -zl 1024 -ll -use 
 ```
 
 ## Reference

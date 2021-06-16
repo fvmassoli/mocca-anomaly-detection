@@ -39,16 +39,30 @@ def get_out_dir(args, pretrain: bool, aelr: float, dset_name: str="cifar10", tra
         String containing infos about the current experiment setup
 
     """
-    if pretrain:   
-        tmp = (f"pretrain-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-lr_{args.ae_learning_rate}-awd_{args.ae_weight_decay}")
-        out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), 'pretrain', tmp)
-    
+    if dset_name == "ShanghaiTech":
+        if pretrain:
+            tmp = (f"pretrain-mn_{dset_name}-cl_{args.code_length}-lr_{args.ae_learning_rate}")
+            out_dir = os.path.join(args.output_path, dset_name, 'pretrain', tmp)
+        else:
+            tmp = (
+                f"train-mn_{dset_name}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
+                f"bd_{args.boundary}-sl_{args.use_selectors}-ile_{'.'.join(map(str, args.idx_list_enc))}-lstm_{args.load_lstm}-"
+                f"bidir_{args.bidirectional}-hs_{args.hidden_size}-nl_{args.num_layers}-dp_{args.dropout}"
+            )
+            out_dir = os.path.join(args.output_path, dset_name, 'train', tmp)
+            if args.end_to_end_training:
+                out_dir = os.path.join(args.output_path, dset_name, 'train_end_to_end', tmp)
     else:
-        tmp = (
-            f"train-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
-            f"wd_{args.weight_decay}-bd_{args.boundary}-alr_{aelr}-sl_{args.use_selectors}-ep_{args.epochs}-ile_{'.'.join(map(str, args.idx_list_enc))}"
-        )
-        out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), 'train', tmp)
+        if pretrain:   
+            tmp = (f"pretrain-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-lr_{args.ae_learning_rate}-awd_{args.ae_weight_decay}")
+            out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), 'pretrain', tmp)
+        
+        else:
+            tmp = (
+                f"train-mn_{dset_name}-nc_{args.normal_class}-cl_{args.code_length}-bs_{args.batch_size}-nu_{args.nu}-lr_{args.learning_rate}-"
+                f"wd_{args.weight_decay}-bd_{args.boundary}-alr_{aelr}-sl_{args.use_selectors}-ep_{args.epochs}-ile_{'.'.join(map(str, args.idx_list_enc))}"
+            )
+            out_dir = os.path.join(args.output_path, dset_name, str(args.normal_class), 'train', tmp)
     
     if not os.path.exists(out_dir):
         os.makedirs(out_dir)
@@ -146,6 +160,43 @@ def load_mvtec_model_from_checkpoint(input_shape: tuple, code_length: int, idx_l
     
     return encoder_net
 
+def extract_arguments_from_checkpoint(net_checkpoint: str):
+    """Takes file path of the checkpoint and parse the checkpoint name to extract training parameters and
+    architectural specifications of the model. 
+    
+    Parameters
+    ----------
+    net_checkpoint : file path of the checkpoint (str) 
+
+    Returns
+    -------
+    code_length = latent code size (int)
+    batch_size = batch_size (int)
+    boundary = soft or hard boundary (str)
+    use_selectors = if selectors used it is true, otherwise false (bool)
+    idx_list_enc = indexes of the exploited layers (list of integers)
+    load_lstm = boolean to show whether lstm used (bool)
+    hidden_size = hidden size of the lstm (int)
+    num_layers = number of layers of the lstm (int)
+    dropout = dropout probability (float)
+    bidirectional = is lstm bi-directional or not (bool)
+    dataset_name = name of the dataset (str)
+    train_type = is it end-to-end, train, or pretrain (str)
+    """
+
+    code_length = int(net_checkpoint.split(os.sep)[-2].split('-')[2].split('_')[-1])
+    batch_size = int(net_checkpoint.split(os.sep)[-2].split('-')[3].split('_')[-1])
+    boundary = net_checkpoint.split(os.sep)[-2].split('-')[6].split('_')[-1]
+    use_selectors = net_checkpoint.split(os.sep)[-2].split('-')[7].split('_')[-1] == "True"
+    idx_list_enc = [int(i) for i in net_checkpoint.split(os.sep)[-2].split('-')[8].split('_')[-1].split('.')]
+    load_lstm = net_checkpoint.split(os.sep)[-2].split('-')[9].split('_')[-1] == "True"
+    hidden_size = int(net_checkpoint.split(os.sep)[-2].split('-')[11].split('_')[-1])
+    num_layers = int(net_checkpoint.split(os.sep)[-2].split('-')[12].split('_')[-1])
+    dropout = float(net_checkpoint.split(os.sep)[-2].split('-')[13].split('_')[-1])
+    bidirectional = net_checkpoint.split(os.sep)[-2].split('-')[10].split('_')[-1] == "True"
+    dataset_name = net_checkpoint.split(os.sep)[-4]
+    train_type = net_checkpoint.split(os.sep)[-3]
+    return code_length, batch_size, boundary, use_selectors, idx_list_enc, load_lstm, hidden_size, num_layers, dropout, bidirectional, dataset_name, train_type
 
 def eval_spheres_centers(train_loader: DataLoader, encoder_net: torch.nn.Module, ae_net_cehckpoint: str, use_selectors: bool, device:str, debug: bool) -> dict:
     """Eval the centers of the hyperspheres at each chosen layer.

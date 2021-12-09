@@ -9,7 +9,7 @@
 
 This repository contains the code relative to the paper "[MOCCA: Multi-Layer One-Class ClassificAtion for Anomaly Detection](https://ieeexplore.ieee.org/document/9640579)" by Fabio Valerio Massoli (ISTI - CNR), Fabrizio Falchi (ISTI - CNR), Alperen Kantarci (ITU), Şeymanur Akti (ITU), Hazim Kemal Ekenel (ITU), Giuseppe Amato (ISTI - CNR).
 
-The paper has been accepted for publication in the IEEE Transactions on Neural Networks and Learning Systems, [Special Issue on Deep Learning for Anomaly Detection](https://ieeexplore.ieee.org/document/9640579).
+The paper has been accepted for publication in the [IEEE Transactions on Neural Networks and Learning Systems, Special Issue on Deep Learning for Anomaly Detection](https://ieeexplore.ieee.org/document/9640579).
 
 It reports a new technique to detect anomalies based on a layer-wise paradigm to exploit the features maps generated at different depths of a Deep Learning model.
 

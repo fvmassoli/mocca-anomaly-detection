@@ -48,11 +48,12 @@ For all the details about the training procedure and the experimental results, p
 To cite our work, please use the following form
 
 ```
-@article{massoli2020mocca,
-  title={MOCCA: Multi-Layer One-Class Classification for Anomaly Detection},
+@article{massoli2021mocca,
+  title={MOCCA: Multilayer One-Class Classification for Anomaly Detection},
   author={Massoli, Fabio Valerio and Falchi, Fabrizio and Kantarci, Alperen and Akti, {\c{S}}eymanur and Ekenel, Hazim Kemal and Amato, Giuseppe},
-  journal={arXiv preprint arXiv:2012.12111},
-  year={2020}
+  journal={IEEE Transactions on Neural Networks and Learning Systems},
+  year={2021},
+  publisher={IEEE}
 }
 ```
 
